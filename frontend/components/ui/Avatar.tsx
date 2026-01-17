@@ -5,12 +5,14 @@ import { cn } from '@/lib/utils';
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 interface AvatarProps {
-  src: string;
+  src?: string | null;
   alt: string;
   size?: AvatarSize;
   verified?: boolean;
   className?: string;
 }
+
+const DEFAULT_AVATAR = '/default-avatar.svg';
 
 export function Avatar({
   src,
@@ -35,11 +37,14 @@ export function Avatar({
     xl: 'w-10 h-10',
   };
 
+  // Use default avatar if src is empty, null, or undefined
+  const imageSrc = src && src.trim() !== '' ? src : DEFAULT_AVATAR;
+
   return (
     <div className={cn('relative inline-block', className)}>
       <div className={cn('rounded-full overflow-hidden', sizeStyles[size])}>
         <Image
-          src={src}
+          src={imageSrc}
           alt={alt}
           width={128}
           height={128}
