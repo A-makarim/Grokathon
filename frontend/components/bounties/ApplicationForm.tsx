@@ -14,22 +14,23 @@ interface ApplicationFormProps {
 }
 
 export function ApplicationForm({ bounty, existingApplication, onSuccess }: ApplicationFormProps) {
-  const { currentUser, isAuthenticated, login, isAdmin } = useUser();
+  const { currentUser, isAuthenticated, isAdmin } = useUser();
   const { submitApplication } = useApplications();
 
-  const [twitterHandle, setTwitterHandle] = useState('');
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [coverLetter, setCoverLetter] = useState('');
   const [bidAmount, setBidAmount] = useState<string>('');
-  const [step, setStep] = useState<'auth' | 'profile' | 'apply'>(
-    isAuthenticated ? 'apply' : 'auth'
-  );
+  // Start at 'profile' step (portfolio link) when authenticated
+  const [step, setStep] = useState<'profile' | 'apply'>('profile');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const characterCount = coverLetter.length;
   const maxCharacters = 500;
   const maxBudget = bounty.reward;
+  
+  // Get user's Twitter handle from logged-in account
+  const userHandle = currentUser?.twitterHandle?.replace('@', '') || currentUser?.name || '';
 
   // If user is admin, show different message
   if (isAdmin) {
@@ -86,31 +87,24 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
     );
   }
 
-  // Auth step - get username
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newErrors: Record<string, string> = {};
-    if (!twitterHandle.trim()) {
-      newErrors.twitterHandle = 'Twitter/X username is required';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      // Register or login
-      await login(twitterHandle.replace('@', ''), twitterHandle.replace('@', ''));
-      setStep('profile');
-    } catch (err) {
-      setErrors({ twitterHandle: 'Failed to authenticate. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Not authenticated - show connect message
+  if (!isAuthenticated) {
+    return (
+      <div className="text-center py-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#1D9BF0]/10 mb-4">
+          <svg viewBox="0 0 24 24" fill="#1D9BF0" className="w-8 h-8">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+          </svg>
+        </div>
+        <h3 className="text-[18px] font-bold text-[#E7E9EA] mb-2">
+          Connect to Apply
+        </h3>
+        <p className="text-[14px] text-[#71767B]">
+          Click the <span className="text-[#1D9BF0] font-medium">Connect</span> button in the top right to sign in and apply for this bounty.
+        </p>
+      </div>
+    );
+  }
 
   // Profile step - create applicant profile
   const handleProfile = async (e: React.FormEvent) => {
@@ -130,10 +124,10 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
 
     setIsSubmitting(true);
     try {
-      // Create applicant profile
+      // Create applicant profile using logged-in user's info
       await api.createApplicantProfile({
-        name: twitterHandle.replace('@', ''),
-        twitterHandle: twitterHandle.replace('@', ''),
+        name: userHandle,
+        twitterHandle: userHandle,
         portfolioUrl,
       });
       setStep('apply');
@@ -183,46 +177,15 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
   return (
     <div>
       <div className="text-[11px] uppercase tracking-wider text-[#71767B] mb-2 font-medium">Apply</div>
-      <h3 className="text-[20px] font-bold text-[#E7E9EA] mb-6">Apply for this Bounty</h3>
+      <h3 className="text-[20px] font-bold text-[#E7E9EA] mb-2">Apply for this Bounty</h3>
+      
+      {/* User info display */}
+      <div className="flex items-center gap-2 mb-6 text-[14px] text-[#71767B]">
+        <span>Applying as</span>
+        <span className="text-[#1D9BF0] font-semibold">@{userHandle}</span>
+      </div>
 
-      {/* Step 1: Auth */}
-      {step === 'auth' && (
-        <form onSubmit={handleAuth} className="space-y-6">
-          <div>
-            <label className="block text-[14px] font-semibold text-[#E7E9EA] mb-2">
-              Your Twitter/X Username
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#71767B]">@</span>
-              <input
-                type="text"
-                value={twitterHandle}
-                onChange={(e) => setTwitterHandle(e.target.value)}
-                placeholder="username"
-                className={`w-full pl-8 pr-4 py-3 bg-[#16181C] border ${
-                  errors.twitterHandle ? 'border-[#F4212E]' : 'border-[#2F3336]'
-                } rounded-lg text-[#E7E9EA] text-[15px] placeholder-[#71767B] focus:outline-none focus:border-[#1D9BF0] transition-colors`}
-              />
-            </div>
-            {errors.twitterHandle && (
-              <span className="text-[12px] text-[#F4212E] mt-1 block">{errors.twitterHandle}</span>
-            )}
-            <p className="text-[12px] text-[#71767B] mt-2">
-              We'll use this to verify your identity and view your profile
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-3 px-6 bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:bg-[#1D9BF0]/50 text-white font-bold text-[15px] rounded-full transition-all duration-200 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? 'Connecting...' : 'Continue'}
-          </button>
-        </form>
-      )}
-
-      {/* Step 2: Profile */}
+      {/* Step 1: Profile/Portfolio */}
       {step === 'profile' && (
         <form onSubmit={handleProfile} className="space-y-6">
           <div>
@@ -246,26 +209,17 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
             </p>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setStep('auth')}
-              className="px-6 py-3 border border-[#2F3336] text-[#E7E9EA] font-bold text-[15px] rounded-full hover:bg-[#16181C] transition-all"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 px-6 bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:bg-[#1D9BF0]/50 text-white font-bold text-[15px] rounded-full transition-all duration-200 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Setting up...' : 'Continue'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3 px-6 bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:bg-[#1D9BF0]/50 text-white font-bold text-[15px] rounded-full transition-all duration-200 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? 'Setting up...' : 'Continue'}
+          </button>
         </form>
       )}
 
-      {/* Step 3: Apply */}
+      {/* Step 2: Apply */}
       {step === 'apply' && (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Bid Amount */}

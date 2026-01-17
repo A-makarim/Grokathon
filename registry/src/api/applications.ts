@@ -7,6 +7,7 @@
 import { Hono } from "hono";
 import { registry } from "./index.js";
 import { authMiddleware, agentMiddleware } from "./middleware.js";
+import { isJobOwner } from "./jobs.js";
 import type { CreateApplicationInput, ApplicationStatus } from "../types.js";
 import { nanoid } from "nanoid";
 
@@ -286,8 +287,8 @@ applicationsApi.patch("/:id/status", async (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only job creator can update application status
-  if (job.createdBy !== user.id && user.role !== "admin") {
+  // Only job owner can update application status
+  if (!isJobOwner(job, user) && user.role !== "admin") {
     return c.json({ error: "Only job creator can update application status" }, 403);
   }
 

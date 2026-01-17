@@ -7,10 +7,40 @@
 import { Hono } from "hono";
 import { registry } from "./index.js";
 import { authMiddleware, agentMiddleware } from "./middleware.js";
-import type { CreateJobInput, JobStatus, JobComplexity } from "../types.js";
+import type { CreateJobInput, JobStatus, JobComplexity, Job, User } from "../types.js";
 import { nanoid } from "nanoid";
 
 export const jobsApi = new Hono();
+
+/**
+ * Extract Twitter handle from a tweet URL
+ * e.g., "https://twitter.com/username/status/123" -> "username"
+ */
+function extractTwitterHandleFromUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status/);
+  return match ? match[1].toLowerCase() : undefined;
+}
+
+/**
+ * Check if user is the owner of a job
+ * Owner can be determined by:
+ * 1. Direct ID match (job.createdBy === user.id)
+ * 2. Twitter handle match (user's handle matches the source tweet author)
+ */
+export function isJobOwner(job: Job, user: User): boolean {
+  // Direct ID match
+  if (job.createdBy === user.id) return true;
+  
+  // Twitter handle match from source tweet URL
+  const tweetAuthor = extractTwitterHandleFromUrl(job.sourceTweetUrl);
+  if (tweetAuthor && user.twitterHandle) {
+    const userHandle = user.twitterHandle.replace(/^@/, '').toLowerCase();
+    if (tweetAuthor === userHandle) return true;
+  }
+  
+  return false;
+}
 
 // =============================================================================
 // PUBLIC ENDPOINTS (read-only)
@@ -166,8 +196,8 @@ jobsApi.patch("/:id/assign", async (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only creator, admin, or agent can assign
-  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
+  // Only owner, admin, or agent can assign
+  if (!isJobOwner(job, user) && user.role !== "admin" && user.role !== "agent") {
     return c.json({ error: "Only job creator can assign" }, 403);
   }
 
@@ -202,8 +232,8 @@ jobsApi.patch("/:id/complete", (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only creator, admin, or agent can mark complete
-  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
+  // Only owner, admin, or agent can mark complete
+  if (!isJobOwner(job, user) && user.role !== "admin" && user.role !== "agent") {
     return c.json({ error: "Only job creator can mark complete" }, 403);
   }
 
@@ -234,8 +264,8 @@ jobsApi.patch("/:id/cancel", (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Creator, admin, or agent can cancel
-  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
+  // Owner, admin, or agent can cancel
+  if (!isJobOwner(job, user) && user.role !== "admin" && user.role !== "agent") {
     return c.json({ error: "Only job creator can cancel" }, 403);
   }
 

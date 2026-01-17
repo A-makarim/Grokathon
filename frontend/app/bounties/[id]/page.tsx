@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { BountyStatusBadge } from '@/components/bounties/BountyStatusBadge';
 import { ApplicationForm } from '@/components/bounties/ApplicationForm';
 import { BidChart } from '@/components/bounties/BidChart';
@@ -13,7 +14,7 @@ import { useBounties } from '@/contexts/BountiesContext';
 import { useUser } from '@/contexts/UserContext';
 import { formatTimeAgo, formatReward, formatNumber, jobStatusToBountyStatus } from '@/lib/utils';
 import api from '@/lib/api';
-import type { Job, Bounty, Application } from '@/lib/types';
+import type { Job, Bounty, Application, Suggestion } from '@/lib/types';
 
 interface PageProps {
   params: Promise<{
@@ -32,6 +33,11 @@ export default function BountyDetailPage({ params }: PageProps) {
   const [existingApplication, setExistingApplication] = useState<Application | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Owner management state
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
 
   // Extract Twitter handle from tweet URL for ownership check
   const extractHandleForOwnership = (url: string | null | undefined): string | undefined => {
@@ -126,6 +132,109 @@ export default function BountyDetailPage({ params }: PageProps) {
     }
     checkApplication();
   }, [isAuthenticated, job, id, isOwner]);
+
+  // Fetch suggestion for owners
+  useEffect(() => {
+    async function fetchSuggestion() {
+      if (!isOwner || !job) return;
+      
+      try {
+        const suggestionData = await api.getSuggestionForJob(job.id);
+        setSuggestion(suggestionData);
+      } catch (err) {
+        // No suggestion yet - that's okay
+      }
+    }
+    fetchSuggestion();
+  }, [isOwner, job]);
+
+  // Generate AI suggestion
+  const handleGenerateSuggestion = async () => {
+    if (!job) return;
+
+    setIsGeneratingSuggestion(true);
+    setOwnerError(null);
+
+    try {
+      // Trigger suggestion generation (returns 202 immediately)
+      await api.generateSuggestion(job.id);
+
+      // Poll for the result every 2 seconds for up to 30 seconds
+      const maxAttempts = 15;
+      let attempts = 0;
+
+      const pollForSuggestion = async (): Promise<Suggestion | null> => {
+        attempts++;
+
+        try {
+          const suggestionData = await api.getSuggestionForJob(job.id);
+          return suggestionData;
+        } catch (err) {
+          // Suggestion not ready yet
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return pollForSuggestion();
+          }
+          return null;
+        }
+      };
+
+      const newSuggestion = await pollForSuggestion();
+
+      if (newSuggestion) {
+        setSuggestion(newSuggestion);
+      } else {
+        setOwnerError('Suggestion generation timed out. Please refresh the page in a few seconds.');
+      }
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Failed to generate suggestion');
+    } finally {
+      setIsGeneratingSuggestion(false);
+    }
+  };
+
+  // Assign job to applicant
+  const handleAssign = async (applicantId: string) => {
+    if (!job) return;
+
+    setOwnerError(null);
+    try {
+      await api.assignJob(job.id, applicantId);
+      // Refresh job data
+      const updatedJob = await api.getJob(job.id);
+      setJob(updatedJob);
+      if (bounty) {
+        setBounty({ ...bounty, status: 'in_progress' });
+      }
+      refreshBounties();
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Failed to assign job');
+    }
+  };
+
+  // Close job - cancel if OPEN, complete if IN_PROGRESS
+  const handleCloseJob = async () => {
+    if (!job) return;
+
+    setOwnerError(null);
+    try {
+      // Use cancel for OPEN jobs, complete for IN_PROGRESS jobs
+      if (job.status === 'IN_PROGRESS') {
+        await api.completeJob(job.id);
+      } else {
+        await api.cancelJob(job.id);
+      }
+      // Refresh job data
+      const updatedJob = await api.getJob(job.id);
+      setJob(updatedJob);
+      if (bounty) {
+        setBounty({ ...bounty, status: job.status === 'IN_PROGRESS' ? 'completed' : 'cancelled' });
+      }
+      refreshBounties();
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Failed to close job');
+    }
+  };
 
   const handleApplicationSuccess = () => {
     setShowSuccess(true);
@@ -273,7 +382,7 @@ export default function BountyDetailPage({ params }: PageProps) {
                 <h1 className="text-[28px] lg:text-[32px] font-bold text-[#E7E9EA] leading-tight">
                   {bounty.title}
                 </h1>
-                <BountyStatusBadge status={bounty.status} />
+                <BountyStatusBadge status={bounty.status} isOwner={isOwner} />
               </div>
               
               {/* Poster Info */}
@@ -360,10 +469,122 @@ export default function BountyDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Owner View: Show all submissions */}
+        {/* Owner View: Management Panel */}
         {isOwner && (
           <div className="mt-8">
-            <OwnerSubmissionsList bounty={bounty} />
+            {/* Error Display */}
+            {ownerError && (
+              <div className="mb-6 p-4 border border-[#F4212E]/30 bg-[#F4212E]/10 rounded-xl">
+                <p className="text-[#F4212E] text-[14px]">{ownerError}</p>
+                <button onClick={() => setOwnerError(null)} className="text-[#71767B] text-[12px] hover:underline mt-1">
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* AI Suggestion Panel */}
+            <div className="border-t border-l border-[#2F3336] mb-8">
+              <div className="p-6 border-r border-b border-[#2F3336]">
+                {/* Generating State */}
+                {isGeneratingSuggestion && !suggestion && (
+                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#00BA7C]/5 to-transparent rounded-xl border border-[#00BA7C]/20">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00BA7C]/20 flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-[#00BA7C] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[15px] font-bold text-[#00BA7C] mb-1">
+                        Analyzing applicants...
+                      </h4>
+                      <p className="text-[13px] text-[#71767B]">
+                        Reviewing profiles and generating recommendation. This may take 15-20 seconds.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Suggestion Display */}
+                {suggestion && (
+                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#00BA7C]/5 to-transparent rounded-xl border border-[#00BA7C]/20">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00BA7C]/20 flex items-center justify-center">
+                      <span className="text-[18px]">🤖</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-[15px] font-bold text-[#00BA7C]">
+                          AI Recommendation
+                        </h4>
+                        {suggestion.confidenceScore && (
+                          <span className="px-2 py-0.5 bg-[#00BA7C]/20 text-[#00BA7C] text-[11px] font-semibold rounded-full">
+                            {suggestion.confidenceScore}% confidence
+                          </span>
+                        )}
+                      </div>
+                      {suggestion.suggestXai ? (
+                        <p className="text-[14px] text-[#E7E9EA]">
+                          <strong>Recommend: xAI Agent</strong> — This task is suitable for AI automation.
+                        </p>
+                      ) : suggestion.applicant ? (
+                        <p className="text-[14px] text-[#E7E9EA]">
+                          <strong>Recommend: @{suggestion.applicant.twitterHandle}</strong>
+                        </p>
+                      ) : (
+                        <p className="text-[14px] text-[#E7E9EA]">No recommendation available</p>
+                      )}
+                      {suggestion.reasoning && (
+                        <p className="text-[13px] text-[#71767B] mt-2 leading-relaxed">
+                          {suggestion.reasoning}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Suggestion Yet - Show Button */}
+                {!suggestion && !isGeneratingSuggestion && (
+                  <div className="flex items-center justify-between p-4 bg-[#16181C] rounded-xl border border-[#2F3336]">
+                    <div>
+                      <h4 className="text-[15px] font-semibold text-[#E7E9EA] mb-1">
+                        Get AI Recommendation
+                      </h4>
+                      <p className="text-[13px] text-[#71767B]">
+                        Let AI analyze applicants and suggest the best match for your bounty
+                      </p>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      onClick={handleGenerateSuggestion}
+                      disabled={isGeneratingSuggestion}
+                    >
+                      🤖 Get AI Suggestion
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Submissions List */}
+            <OwnerSubmissionsList
+              bounty={bounty}
+              suggestion={suggestion}
+              onAssign={handleAssign}
+              onGenerateSuggestion={handleGenerateSuggestion}
+              isGeneratingSuggestion={isGeneratingSuggestion}
+            />
+
+            {/* Close Job Button */}
+            {job.status === 'OPEN' && (
+              <div className="mt-6 border-t border-l border-[#2F3336]">
+                <div className="p-6 border-r border-b border-[#2F3336]">
+                  <Button
+                    variant="ghost"
+                    onClick={handleCloseJob}
+                    className="w-full text-[#F4212E] hover:bg-[#F4212E]/10"
+                  >
+                    Close Job
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

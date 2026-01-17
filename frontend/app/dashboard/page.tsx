@@ -6,11 +6,10 @@ import Link from 'next/link';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/Button';
 import { JobGrid, JobGridSkeleton } from '@/components/bounties/JobGrid';
-import { JobDetailModal } from '@/components/bounties/JobDetailModal';
 import { useUser } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
-import type { Job, Application, Suggestion, Applicant } from '@/lib/types';
+import type { Job, Application, Suggestion } from '@/lib/types';
 
 type DashboardTab = 'open' | 'in_progress' | 'completed' | 'all';
 
@@ -21,12 +20,10 @@ interface JobWithApplications extends Job {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { currentUser, isAuthenticated, isLoading: userLoading, isAdmin } = useUser();
+  const { currentUser, isAuthenticated, isLoading: userLoading } = useUser();
   const [activeTab, setActiveTab] = useState<DashboardTab>('open');
   const [jobs, setJobs] = useState<JobWithApplications[]>([]);
-  const [selectedJob, setSelectedJob] = useState<JobWithApplications | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Extract Twitter handle from tweet URL (e.g., https://twitter.com/keerthanenr/status/123)
@@ -94,84 +91,9 @@ export default function DashboardPage() {
     }
   }, [userLoading, isAuthenticated, fetchData]);
 
-  // Generate suggestion for selected job
-  const handleGenerateSuggestion = async () => {
-    if (!selectedJob) return;
-
-    setIsGeneratingSuggestion(true);
-    setError(null);
-
-    try {
-      // Trigger suggestion generation (returns 202 immediately)
-      await api.generateSuggestion(selectedJob.id);
-
-      // Poll for the result every 2 seconds for up to 30 seconds
-      const maxAttempts = 15;
-      let attempts = 0;
-
-      const pollForSuggestion = async (): Promise<Suggestion | null> => {
-        attempts++;
-
-        try {
-          const suggestion = await api.getSuggestionForJob(selectedJob.id);
-          return suggestion;
-        } catch (err) {
-          // Suggestion not ready yet
-          if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return pollForSuggestion();
-          }
-          return null;
-        }
-      };
-
-      const suggestion = await pollForSuggestion();
-
-      if (suggestion) {
-        // Update the job with the new suggestion
-        setJobs(prev => prev.map(j =>
-          j.id === selectedJob.id ? { ...j, suggestion } : j
-        ));
-        setSelectedJob(prev => prev ? { ...prev, suggestion } : null);
-      } else {
-        setError('Suggestion generation timed out. Please refresh the page in a few seconds.');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate suggestion');
-    } finally {
-      setIsGeneratingSuggestion(false);
-    }
-  };
-
-  // Assign job to applicant
-  const handleAssign = async (applicantId: string) => {
-    if (!selectedJob) return;
-
-    try {
-      await api.assignJob(selectedJob.id, applicantId);
-      await fetchData();
-      setSelectedJob(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to assign job');
-    }
-  };
-
-  // Close/complete job
-  const handleCloseJob = async () => {
-    if (!selectedJob) return;
-
-    try {
-      await api.completeJob(selectedJob.id);
-      await fetchData();
-      setSelectedJob(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to close job');
-    }
-  };
-
-  // Handle job selection
+  // Navigate to bounty page when job is selected
   const handleSelectJob = (job: JobWithApplications) => {
-    setSelectedJob(job);
+    router.push(`/bounties/${job.id}`);
   };
 
   if (userLoading) {
@@ -368,24 +290,9 @@ export default function DashboardPage() {
         ) : (
           <JobGrid
             jobs={displayedJobs}
-            selectedJobId={selectedJob?.id}
             onSelectJob={handleSelectJob}
           />
         )}
-
-        {/* Job Detail Modal */}
-        <JobDetailModal
-          job={selectedJob}
-          isOpen={!!selectedJob}
-          onClose={() => setSelectedJob(null)}
-          onGenerateSuggestion={handleGenerateSuggestion}
-          onAssign={handleAssign}
-          onCloseJob={handleCloseJob}
-          isGeneratingSuggestion={isGeneratingSuggestion}
-          isAdmin={isAdmin}
-          currentUserId={currentUser?.id}
-          currentUserTwitterHandle={currentUser?.twitterHandle}
-        />
       </div>
     </MainLayout>
   );
