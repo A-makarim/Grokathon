@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS applications (
   applicant_id TEXT NOT NULL REFERENCES applicants(id),
   cover_letter TEXT,
   profile_summary TEXT,
+  bid_amount REAL,
   applied_at TEXT NOT NULL,
   status TEXT CHECK(status IN ('PENDING', 'REVIEWED', 'ACCEPTED', 'REJECTED')) DEFAULT 'PENDING'
 );
@@ -110,6 +111,7 @@ export interface ApplicationRow {
   applicant_id: string;
   cover_letter: string | null;
   profile_summary: string | null;
+  bid_amount: number | null;
   applied_at: string;
   status: string;
 }

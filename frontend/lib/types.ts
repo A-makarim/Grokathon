@@ -139,3 +139,28 @@ export interface Suggestion {
   applicant?: Applicant;
 }
 
+// =============================================================================
+// XAI WORK
+// =============================================================================
+
+export type XaiWorkStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+
+export interface XaiWork {
+  id: string;
+  jobId: string;
+  status: XaiWorkStatus;
+  /** The work output produced by xAI */
+  output: string | null;
+  /** Any artifacts/deliverables (URLs or content) */
+  artifacts: string[];
+  /** Execution notes/logs from xAI */
+  executionNotes: string | null;
+  /** Error message if failed */
+  errorMessage: string | null;
+  /** Processing started at */
+  startedAt: string | null;
+  /** Processing completed at */
+  completedAt: string | null;
+  createdAt: string;
+}
+

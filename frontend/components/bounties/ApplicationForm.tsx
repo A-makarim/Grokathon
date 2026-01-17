@@ -10,7 +10,7 @@ import api from '@/lib/api';
 interface ApplicationFormProps {
   bounty: Bounty;
   existingApplication?: Application;
-  onSuccess: () => void;
+  onSuccess: (application: Application) => void;
 }
 
 export function ApplicationForm({ bounty, existingApplication, onSuccess }: ApplicationFormProps) {
@@ -165,8 +165,8 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
 
     setIsSubmitting(true);
     try {
-      await submitApplication(bounty.id, coverLetter || undefined, parsedBid);
-      onSuccess();
+      const application = await submitApplication(bounty.id, coverLetter || undefined, parsedBid);
+      onSuccess(application);
     } catch (err: any) {
       setErrors({ submit: err.message || 'Failed to submit application' });
     } finally {

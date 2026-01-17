@@ -35,6 +35,7 @@ import type {
 } from "../types.js";
 import { SCHEMA } from "./schema.js";
 import { JOB_SCHEMA } from "./job-schema.js";
+import { XAI_WORK_SCHEMA, type XaiWork, type XaiWorkStatus } from "./xai-work.js";
 import * as users from "./users.js";
 import * as markets from "./markets.js";
 import * as traders from "./traders.js";
@@ -45,6 +46,7 @@ import * as jobs from "./jobs.js";
 import * as applicants from "./applicants.js";
 import * as applications from "./applications.js";
 import * as suggestions from "./suggestions.js";
+import * as xaiWork from "./xai-work.js";
 
 // =============================================================================
 // STORAGE CLASS
@@ -59,6 +61,24 @@ export class MarketStorage {
     this.db.pragma("foreign_keys = ON");
     this.db.exec(SCHEMA);
     this.db.exec(JOB_SCHEMA); // Add job marketplace tables
+    this.db.exec(XAI_WORK_SCHEMA); // Add xAI work table
+    
+    // Run migrations for existing databases
+    this.runMigrations();
+  }
+  
+  private runMigrations(): void {
+    // Migration: Add bid_amount column to applications table if it doesn't exist
+    try {
+      const tableInfo = this.db.prepare("PRAGMA table_info(applications)").all() as { name: string }[];
+      const hasBidAmount = tableInfo.some(col => col.name === "bid_amount");
+      if (!hasBidAmount) {
+        this.db.exec("ALTER TABLE applications ADD COLUMN bid_amount REAL");
+        console.log("[Migration] Added bid_amount column to applications table");
+      }
+    } catch (err) {
+      // Table might not exist yet, that's fine
+    }
   }
 
   // ===========================================================================
@@ -327,6 +347,38 @@ export class MarketStorage {
 
   listSuggestions(filters?: SuggestionFilters): Suggestion[] {
     return suggestions.listSuggestions(this.db, filters);
+  }
+
+  // ===========================================================================
+  // XAI WORK OPERATIONS
+  // ===========================================================================
+
+  createXaiWork(jobId: string): XaiWork {
+    return xaiWork.createXaiWork(this.db, jobId);
+  }
+
+  getXaiWork(id: string): XaiWork | undefined {
+    return xaiWork.getXaiWork(this.db, id);
+  }
+
+  getXaiWorkByJob(jobId: string): XaiWork | undefined {
+    return xaiWork.getXaiWorkByJob(this.db, jobId);
+  }
+
+  updateXaiWorkStatus(id: string, status: XaiWorkStatus): void {
+    xaiWork.updateXaiWorkStatus(this.db, id, status);
+  }
+
+  saveXaiWorkOutput(id: string, output: string, artifacts?: string[], executionNotes?: string): void {
+    xaiWork.saveXaiWorkOutput(this.db, id, output, artifacts, executionNotes);
+  }
+
+  saveXaiWorkError(id: string, errorMessage: string): void {
+    xaiWork.saveXaiWorkError(this.db, id, errorMessage);
+  }
+
+  listPendingXaiWork(limit = 50): XaiWork[] {
+    return xaiWork.listPendingXaiWork(this.db, limit);
   }
 
   // ===========================================================================

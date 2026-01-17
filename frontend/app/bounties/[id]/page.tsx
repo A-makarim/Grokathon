@@ -10,11 +10,12 @@ import { BountyStatusBadge } from '@/components/bounties/BountyStatusBadge';
 import { ApplicationForm } from '@/components/bounties/ApplicationForm';
 import { BidChart } from '@/components/bounties/BidChart';
 import { OwnerSubmissionsList } from '@/components/bounties/OwnerSubmissionsList';
+import { XaiWorkDisplay } from '@/components/bounties/XaiWorkDisplay';
 import { useBounties } from '@/contexts/BountiesContext';
 import { useUser } from '@/contexts/UserContext';
 import { formatTimeAgo, formatReward, formatNumber, jobStatusToBountyStatus } from '@/lib/utils';
 import api from '@/lib/api';
-import type { Job, Bounty, Application, Suggestion } from '@/lib/types';
+import type { Job, Bounty, Application, Suggestion, XaiWork } from '@/lib/types';
 
 interface PageProps {
   params: Promise<{
@@ -38,6 +39,10 @@ export default function BountyDetailPage({ params }: PageProps) {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
+  
+  // xAI Work state
+  const [xaiWork, setXaiWork] = useState<XaiWork | null>(null);
+  const [isRetryingXaiWork, setIsRetryingXaiWork] = useState(false);
 
   // Extract Twitter handle from tweet URL for ownership check
   const extractHandleForOwnership = (url: string | null | undefined): string | undefined => {
@@ -148,10 +153,43 @@ export default function BountyDetailPage({ params }: PageProps) {
     fetchSuggestion();
   }, [isOwner, job]);
 
+  // Fetch xAI work when job is assigned to xAI
+  useEffect(() => {
+    async function fetchXaiWork() {
+      if (!job) return;
+      
+      // Check if job is assigned to xAI
+      const isXaiAssigned = job.assignedTo === 'xai' || job.assignedTo === 'xai-agent';
+      if (!isXaiAssigned) {
+        setXaiWork(null);
+        return;
+      }
+      
+      try {
+        const { work } = await api.getXaiWorkForJob(job.id);
+        setXaiWork(work);
+      } catch (err) {
+        // No xAI work yet - that's okay
+        setXaiWork(null);
+      }
+    }
+    fetchXaiWork();
+    
+    // Poll for updates if work is pending or in progress
+    const isXaiAssigned = job?.assignedTo === 'xai' || job?.assignedTo === 'xai-agent';
+    if (isXaiAssigned && xaiWork && (xaiWork.status === 'PENDING' || xaiWork.status === 'IN_PROGRESS')) {
+      const interval = setInterval(fetchXaiWork, 3000); // Poll every 3 seconds
+      return () => clearInterval(interval);
+    }
+  }, [job, xaiWork?.status]);
+
   // Generate AI suggestion
   const handleGenerateSuggestion = async () => {
     if (!job) return;
 
+    // Store the current suggestion ID to detect when a NEW suggestion is ready
+    const previousSuggestionId = suggestion?.id;
+    
     setIsGeneratingSuggestion(true);
     setOwnerError(null);
 
@@ -159,8 +197,8 @@ export default function BountyDetailPage({ params }: PageProps) {
       // Trigger suggestion generation (returns 202 immediately)
       await api.generateSuggestion(job.id);
 
-      // Poll for the result every 2 seconds for up to 30 seconds
-      const maxAttempts = 15;
+      // Poll for the result every 2 seconds for up to 60 seconds
+      const maxAttempts = 30;
       let attempts = 0;
 
       const pollForSuggestion = async (): Promise<Suggestion | null> => {
@@ -168,9 +206,14 @@ export default function BountyDetailPage({ params }: PageProps) {
 
         try {
           const suggestionData = await api.getSuggestionForJob(job.id);
-          return suggestionData;
+          // Verify we got a valid suggestion object AND it's a NEW suggestion (different ID)
+          if (suggestionData && suggestionData.id && suggestionData.id !== previousSuggestionId) {
+            return suggestionData;
+          }
+          // Same suggestion ID - keep polling for the new one
+          throw new Error('Waiting for new suggestion');
         } catch (err) {
-          // Suggestion not ready yet
+          // Suggestion not ready yet - keep polling
           if (attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             return pollForSuggestion();
@@ -184,7 +227,17 @@ export default function BountyDetailPage({ params }: PageProps) {
       if (newSuggestion) {
         setSuggestion(newSuggestion);
       } else {
-        setOwnerError('Suggestion generation timed out. Please refresh the page in a few seconds.');
+        // One more attempt to fetch in case it just finished
+        try {
+          const finalAttempt = await api.getSuggestionForJob(job.id);
+          if (finalAttempt && finalAttempt.id && finalAttempt.id !== previousSuggestionId) {
+            setSuggestion(finalAttempt);
+            return;
+          }
+        } catch {
+          // Ignore
+        }
+        setOwnerError('Suggestion generation timed out. Please refresh the page.');
       }
     } catch (err) {
       setOwnerError(err instanceof Error ? err.message : 'Failed to generate suggestion');
@@ -199,7 +252,7 @@ export default function BountyDetailPage({ params }: PageProps) {
 
     setOwnerError(null);
     try {
-      await api.assignJob(job.id, applicantId);
+      const result = await api.assignJob(job.id, applicantId);
       // Refresh job data
       const updatedJob = await api.getJob(job.id);
       setJob(updatedJob);
@@ -207,8 +260,32 @@ export default function BountyDetailPage({ params }: PageProps) {
         setBounty({ ...bounty, status: 'in_progress' });
       }
       refreshBounties();
+      
+      // If assigned to xAI, set the initial xAI work state
+      const isXaiAssignment = applicantId === 'xai' || applicantId === 'xai-agent';
+      if (isXaiAssignment && result.xaiWork) {
+        setXaiWork(result.xaiWork);
+      }
     } catch (err) {
       setOwnerError(err instanceof Error ? err.message : 'Failed to assign job');
+    }
+  };
+
+  // Retry failed xAI work
+  const handleRetryXaiWork = async () => {
+    if (!xaiWork) return;
+
+    setIsRetryingXaiWork(true);
+    setOwnerError(null);
+    try {
+      await api.retryXaiWork(xaiWork.id);
+      // Fetch updated work status
+      const { work } = await api.getXaiWorkForJob(job!.id);
+      setXaiWork(work);
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Failed to retry xAI work');
+    } finally {
+      setIsRetryingXaiWork(false);
     }
   };
 
@@ -236,7 +313,8 @@ export default function BountyDetailPage({ params }: PageProps) {
     }
   };
 
-  const handleApplicationSuccess = () => {
+  const handleApplicationSuccess = (application: Application) => {
+    setExistingApplication(application);
     setShowSuccess(true);
     refreshBounties();
     setTimeout(() => setShowSuccess(false), 10000);
@@ -485,25 +563,33 @@ export default function BountyDetailPage({ params }: PageProps) {
             {/* AI Suggestion Panel */}
             <div className="border-t border-l border-[#2F3336] mb-8">
               <div className="p-6 border-r border-b border-[#2F3336]">
-                {/* Generating State */}
-                {isGeneratingSuggestion && !suggestion && (
-                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#00BA7C]/5 to-transparent rounded-xl border border-[#00BA7C]/20">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00BA7C]/20 flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-[#00BA7C] border-t-transparent rounded-full animate-spin" />
+                {/* Generating/Regenerating State - Skeleton Loading */}
+                {isGeneratingSuggestion && (
+                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#1D9BF0]/5 to-transparent rounded-xl border border-[#1D9BF0]/20">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#1D9BF0]/20 flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-[#1D9BF0] border-t-transparent rounded-full animate-spin" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-[15px] font-bold text-[#00BA7C] mb-1">
-                        Analyzing applicants...
-                      </h4>
-                      <p className="text-[13px] text-[#71767B]">
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[15px] font-bold text-[#1D9BF0]">
+                          {suggestion ? 'Regenerating recommendation...' : 'Analyzing applicants...'}
+                        </h4>
+                      </div>
+                      {/* Skeleton text lines */}
+                      <div className="space-y-2">
+                        <div className="h-4 bg-[#2F3336] rounded animate-pulse w-3/4" />
+                        <div className="h-4 bg-[#2F3336] rounded animate-pulse w-full" />
+                        <div className="h-4 bg-[#2F3336] rounded animate-pulse w-2/3" />
+                      </div>
+                      <p className="text-[12px] text-[#71767B] mt-2">
                         Reviewing profiles and generating recommendation. This may take 15-20 seconds.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Suggestion Display */}
-                {suggestion && (
+                {/* Suggestion Display - Only show when not generating */}
+                {suggestion && !isGeneratingSuggestion && (
                   <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#00BA7C]/5 to-transparent rounded-xl border border-[#00BA7C]/20">
                     <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00BA7C]/20 flex items-center justify-center">
                       <span className="text-[18px]">🤖</span>
@@ -513,7 +599,7 @@ export default function BountyDetailPage({ params }: PageProps) {
                         <h4 className="text-[15px] font-bold text-[#00BA7C]">
                           AI Recommendation
                         </h4>
-                        {suggestion.confidenceScore && (
+                        {suggestion.confidenceScore != null && (
                           <span className="px-2 py-0.5 bg-[#00BA7C]/20 text-[#00BA7C] text-[11px] font-semibold rounded-full">
                             {suggestion.confidenceScore}% confidence
                           </span>
@@ -527,9 +613,11 @@ export default function BountyDetailPage({ params }: PageProps) {
                         <p className="text-[14px] text-[#E7E9EA]">
                           <strong>Recommend: @{suggestion.applicant.twitterHandle}</strong>
                         </p>
-                      ) : (
-                        <p className="text-[14px] text-[#E7E9EA]">No recommendation available</p>
-                      )}
+                      ) : suggestion.suggestedApplicantId ? (
+                        <p className="text-[14px] text-[#E7E9EA]">
+                          <strong>Recommend: Human applicant</strong> — See highlighted submission below.
+                        </p>
+                      ) : null}
                       {suggestion.reasoning && (
                         <p className="text-[13px] text-[#71767B] mt-2 leading-relaxed">
                           {suggestion.reasoning}
@@ -557,6 +645,22 @@ export default function BountyDetailPage({ params }: PageProps) {
                     >
                       🤖 Get AI Suggestion
                     </Button>
+                  </div>
+                )}
+
+                {/* Regenerate Button - Show when suggestion exists */}
+                {suggestion && !isGeneratingSuggestion && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={handleGenerateSuggestion}
+                      className="text-[12px] text-[#71767B] hover:text-[#E7E9EA] transition-colors flex items-center gap-1"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                        <path d="M23 4v6h-6M1 20v-6h6" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                      </svg>
+                      Regenerate Suggestion
+                    </button>
                   </div>
                 )}
               </div>
@@ -623,6 +727,17 @@ export default function BountyDetailPage({ params }: PageProps) {
                 currency={bounty.currency}
               />
             </div>
+          </div>
+        )}
+
+        {/* xAI Work Display - Show when job is assigned to xAI */}
+        {xaiWork && (job?.assignedTo === 'xai' || job?.assignedTo === 'xai-agent') && (
+          <div className="mt-8">
+            <XaiWorkDisplay 
+              work={xaiWork} 
+              onRetry={isOwner ? handleRetryXaiWork : undefined}
+              isRetrying={isRetryingXaiWork}
+            />
           </div>
         )}
       </div>

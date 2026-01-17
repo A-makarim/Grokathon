@@ -112,5 +112,13 @@ API Endpoints:
   Suggestions:
   GET  /suggestions/job/:jobId    Get suggestion for a job
   POST /suggestions/generate/:id  Generate suggestion (agent)
+
+  xAI Work:
+  GET  /xai-work/job/:jobId       Get xAI work output for a job
+  GET  /xai-work/:id              Get xAI work by ID
+  POST /xai-work/trigger/:jobId   Trigger xAI work (auto on assign)
+  POST /xai-work/:id/retry        Retry failed xAI work
 `);
+});
+
 });

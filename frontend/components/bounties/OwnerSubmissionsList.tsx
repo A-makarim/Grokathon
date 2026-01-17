@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal, ModalHeader, ModalBody } from '@/components/ui/Modal';
-import { formatTimeAgo } from '@/lib/utils';
+import { formatTimeAgo, formatReward } from '@/lib/utils';
 import type { Bounty, Application, Suggestion } from '@/lib/types';
 
 interface ProfileModalData {
@@ -46,20 +46,35 @@ export function OwnerSubmissionsList({
 
   // Profile modal state
   const [profileModal, setProfileModal] = useState<ProfileModalData | null>(null);
+  // Sort preference: 'recent' | 'bid_low' | 'bid_high'
+  const [sortBy, setSortBy] = useState<'recent' | 'bid_low' | 'bid_high'>('recent');
 
   // Fetch applications when component mounts
   useEffect(() => {
     fetchApplicationsForJob(bounty.id);
   }, [bounty.id, fetchApplicationsForJob]);
 
-  // Sort by most recent first
+  // Sort applications based on preference
   const sortedApplications = useMemo(() => {
     return [...applications].sort((a, b) => {
-      const dateA = new Date(a.appliedAt).getTime();
-      const dateB = new Date(b.appliedAt).getTime();
-      return dateB - dateA;
+      if (sortBy === 'bid_low') {
+        // Sort by bid amount ascending (lowest first), applications with no bid go last
+        const bidA = a.bidAmount || Infinity;
+        const bidB = b.bidAmount || Infinity;
+        return bidA - bidB;
+      } else if (sortBy === 'bid_high') {
+        // Sort by bid amount descending (highest first)
+        const bidA = a.bidAmount || 0;
+        const bidB = b.bidAmount || 0;
+        return bidB - bidA;
+      } else {
+        // Default: sort by most recent first
+        const dateA = new Date(a.appliedAt).getTime();
+        const dateB = new Date(b.appliedAt).getTime();
+        return dateB - dateA;
+      }
     });
-  }, [applications]);
+  }, [applications, sortBy]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -72,6 +87,21 @@ export function OwnerSubmissionsList({
     const reviewed = applications.filter((app) => normalizeStatus(app.status) === 'reviewed').length;
 
     return { pending, accepted, rejected, reviewed };
+  }, [applications]);
+
+  // Calculate bid statistics
+  const bidStats = useMemo(() => {
+    const validBids = applications
+      .map((app) => app.bidAmount || 0)
+      .filter((bid) => bid > 0);
+
+    if (validBids.length === 0) return null;
+
+    const min = Math.min(...validBids);
+    const max = Math.max(...validBids);
+    const avg = validBids.reduce((sum, bid) => sum + bid, 0) / validBids.length;
+
+    return { min, max, avg, count: validBids.length };
   }, [applications]);
 
   const getStatusColor = (status: Application['status']) => {
@@ -143,33 +173,112 @@ export function OwnerSubmissionsList({
           Review applications for your bounty
         </p>
 
-        {/* Stats Row */}
-        {stats && (
-          <div className="mt-4 flex flex-wrap gap-3">
-            <div className="px-3 py-1.5 bg-[#71767B]/10 border border-[#71767B]/30 rounded-lg">
-              <span className="text-[11px] text-[#71767B] uppercase tracking-wide">To Review</span>
-              <span className="ml-2 text-[14px] font-semibold text-[#E7E9EA]">{stats.pending}</span>
+        {/* Bid Statistics - Prominent Display */}
+        {bidStats && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-[#00BA7C]/5 to-[#1D9BF0]/5 border border-[#2F3336] rounded-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#00BA7C" strokeWidth="2" className="w-4 h-4">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              <span className="text-[12px] font-semibold text-[#E7E9EA] uppercase tracking-wide">Bid Range</span>
             </div>
-            {stats.reviewed > 0 && (
-              <div className="px-3 py-1.5 bg-[#1D9BF0]/10 border border-[#1D9BF0]/30 rounded-lg">
-                <span className="text-[11px] text-[#1D9BF0] uppercase tracking-wide">Reviewed</span>
-                <span className="ml-2 text-[14px] font-semibold text-[#1D9BF0]">{stats.reviewed}</span>
+            <div className="flex items-center gap-6">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[#71767B] mb-0.5">Lowest</div>
+                <div className="text-[20px] font-bold text-[#00BA7C]">
+                  {formatReward(bidStats.min, 'USD')}
+                </div>
               </div>
-            )}
-            {stats.accepted > 0 && (
-              <div className="px-3 py-1.5 bg-[#00BA7C]/10 border border-[#00BA7C]/30 rounded-lg">
-                <span className="text-[11px] text-[#00BA7C] uppercase tracking-wide">Accepted</span>
-                <span className="ml-2 text-[14px] font-semibold text-[#00BA7C]">{stats.accepted}</span>
+              <div className="text-[#2F3336]">—</div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[#71767B] mb-0.5">Highest</div>
+                <div className="text-[20px] font-bold text-[#F4212E]">
+                  {formatReward(bidStats.max, 'USD')}
+                </div>
               </div>
-            )}
-            {stats.rejected > 0 && (
-              <div className="px-3 py-1.5 bg-[#F4212E]/10 border border-[#F4212E]/30 rounded-lg">
-                <span className="text-[11px] text-[#F4212E] uppercase tracking-wide">Rejected</span>
-                <span className="ml-2 text-[14px] font-semibold text-[#F4212E]">{stats.rejected}</span>
+              <div className="text-[#2F3336]">|</div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[#71767B] mb-0.5">Average</div>
+                <div className="text-[20px] font-bold text-[#1D9BF0]">
+                  {formatReward(Math.round(bidStats.avg), 'USD')}
+                </div>
               </div>
-            )}
+              <div className="ml-auto text-[12px] text-[#71767B]">
+                {bidStats.count} {bidStats.count === 1 ? 'bid' : 'bids'} received
+              </div>
+            </div>
           </div>
         )}
+
+        {/* Stats Row & Sort Controls */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          {/* Application Status Stats */}
+          {stats && (
+            <div className="flex flex-wrap gap-3">
+              <div className="px-3 py-1.5 bg-[#71767B]/10 border border-[#71767B]/30 rounded-lg">
+                <span className="text-[11px] text-[#71767B] uppercase tracking-wide">To Review</span>
+                <span className="ml-2 text-[14px] font-semibold text-[#E7E9EA]">{stats.pending}</span>
+              </div>
+              {stats.reviewed > 0 && (
+                <div className="px-3 py-1.5 bg-[#1D9BF0]/10 border border-[#1D9BF0]/30 rounded-lg">
+                  <span className="text-[11px] text-[#1D9BF0] uppercase tracking-wide">Reviewed</span>
+                  <span className="ml-2 text-[14px] font-semibold text-[#1D9BF0]">{stats.reviewed}</span>
+                </div>
+              )}
+              {stats.accepted > 0 && (
+                <div className="px-3 py-1.5 bg-[#00BA7C]/10 border border-[#00BA7C]/30 rounded-lg">
+                  <span className="text-[11px] text-[#00BA7C] uppercase tracking-wide">Accepted</span>
+                  <span className="ml-2 text-[14px] font-semibold text-[#00BA7C]">{stats.accepted}</span>
+                </div>
+              )}
+              {stats.rejected > 0 && (
+                <div className="px-3 py-1.5 bg-[#F4212E]/10 border border-[#F4212E]/30 rounded-lg">
+                  <span className="text-[11px] text-[#F4212E] uppercase tracking-wide">Rejected</span>
+                  <span className="ml-2 text-[14px] font-semibold text-[#F4212E]">{stats.rejected}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sort Controls */}
+          {applications.length > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-[#71767B] uppercase tracking-wide">Sort:</span>
+              <div className="flex bg-[#16181C] border border-[#2F3336] rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setSortBy('recent')}
+                  className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    sortBy === 'recent'
+                      ? 'bg-[#1D9BF0] text-white'
+                      : 'text-[#71767B] hover:text-[#E7E9EA]'
+                  }`}
+                >
+                  Recent
+                </button>
+                <button
+                  onClick={() => setSortBy('bid_low')}
+                  className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    sortBy === 'bid_low'
+                      ? 'bg-[#00BA7C] text-white'
+                      : 'text-[#71767B] hover:text-[#E7E9EA]'
+                  }`}
+                >
+                  Lowest Bid
+                </button>
+                <button
+                  onClick={() => setSortBy('bid_high')}
+                  className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    sortBy === 'bid_high'
+                      ? 'bg-[#F4212E] text-white'
+                      : 'text-[#71767B] hover:text-[#E7E9EA]'
+                  }`}
+                >
+                  Highest Bid
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Loading State */}
@@ -216,17 +325,19 @@ export function OwnerSubmissionsList({
               <div
                 key={application.id}
                 className={`p-6 hover:bg-[#16181C]/50 transition-colors border-b border-[#2F3336] ${
-                  isAIPick ? 'border-l-2 border-l-[#00BA7C] bg-[#00BA7C]/5' : ''
+                  isAIPick ? 'border-l-2 border-l-[#1D9BF0] bg-[#1D9BF0]/5' : ''
                 }`}
               >
                 {/* Applicant Header */}
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <Avatar
-                      src={applicantInfo.avatar}
-                      alt={applicantInfo.name}
-                      size="md"
-                    />
+                    <div className={`rounded-full ${isAIPick ? 'ring-2 ring-[#1D9BF0] ring-offset-2 ring-offset-[#000]' : ''}`}>
+                      <Avatar
+                        src={applicantInfo.avatar}
+                        alt={applicantInfo.name}
+                        size="md"
+                      />
+                    </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[15px] font-bold text-[#E7E9EA] truncate">
@@ -244,8 +355,17 @@ export function OwnerSubmissionsList({
                     </div>
                   </div>
 
-                  {/* Status & Assign Button */}
+                  {/* Bid Amount, Status & Assign Button */}
                   <div className="flex items-center gap-3 flex-shrink-0">
+                    {/* Bid Amount - Prominent Display */}
+                    {application.bidAmount > 0 && (
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase tracking-wider text-[#71767B] mb-0.5">Bid</div>
+                        <div className="text-[18px] font-bold text-[#00BA7C]">
+                          {formatReward(application.bidAmount, application.bidCurrency || 'USD')}
+                        </div>
+                      </div>
+                    )}
                     {status !== 'pending' && (
                       <div
                         className={`px-2.5 py-1 rounded-full text-[12px] font-semibold capitalize border ${getStatusColor(

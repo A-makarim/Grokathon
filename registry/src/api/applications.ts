@@ -125,7 +125,7 @@ applicationsApi.get("/me", (c) => {
  */
 applicationsApi.post("/", async (c) => {
   const user = c.get("user");
-  const body = await c.req.json() as { jobId: string; coverLetter?: string };
+  const body = await c.req.json() as { jobId: string; coverLetter?: string; bidAmount?: number };
 
   if (!body.jobId) {
     return c.json({ error: "jobId is required" }, 400);
@@ -163,6 +163,7 @@ applicationsApi.post("/", async (c) => {
       jobId: body.jobId,
       applicantId: applicant.id,
       coverLetter: body.coverLetter,
+      bidAmount: body.bidAmount,
       appliedAt: new Date().toISOString(),
     };
 
@@ -190,6 +191,7 @@ applicationsApi.post("/agent", agentMiddleware, async (c) => {
     applicantId: string; 
     coverLetter?: string;
     profileSummary?: string;
+    bidAmount?: number;
   };
 
   if (!body.jobId || !body.applicantId) {
@@ -225,7 +227,7 @@ applicationsApi.post("/agent", agentMiddleware, async (c) => {
       jobId: body.jobId,
       applicantId: body.applicantId,
       coverLetter: body.coverLetter,
-      profileSummary: body.profileSummary,
+      bidAmount: body.bidAmount,
       appliedAt: new Date().toISOString(),
     };
 

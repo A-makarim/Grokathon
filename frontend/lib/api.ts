@@ -209,6 +209,26 @@ class ApiClient {
   }
 
   // ==========================================================================
+  // XAI WORK
+  // ==========================================================================
+
+  async getXaiWorkForJob(jobId: string) {
+    return this.request<{ work: any }>('GET', `/xai-work/job/${jobId}`);
+  }
+
+  async getXaiWork(id: string) {
+    return this.request<{ work: any }>('GET', `/xai-work/${id}`);
+  }
+
+  async triggerXaiWork(jobId: string) {
+    return this.request<{ work: any; message: string }>('POST', `/xai-work/trigger/${jobId}`, {}, true);
+  }
+
+  async retryXaiWork(id: string) {
+    return this.request<{ message: string }>('POST', `/xai-work/${id}/retry`, {}, true);
+  }
+
+  // ==========================================================================
   // HEALTH & STATS
   // ==========================================================================
 

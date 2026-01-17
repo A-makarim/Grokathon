@@ -35,7 +35,7 @@ export function ApplicationsProvider({ children }: { children: React.ReactNode }
         ...app,
         bountyId: app.jobId,
         message: app.coverLetter || '',
-        bidAmount: 0,
+        bidAmount: app.bidAmount || 0,
         bidCurrency: 'USD' as const,
       })));
     } catch (err) {
@@ -60,7 +60,7 @@ export function ApplicationsProvider({ children }: { children: React.ReactNode }
         ...app,
         bountyId: app.jobId,
         message: app.coverLetter || '',
-        bidAmount: 0,
+        bidAmount: app.bidAmount || 0,
         bidCurrency: 'USD' as const,
       }));
       setApplicationsByJob(prev => ({ ...prev, [bountyId]: mappedApps }));

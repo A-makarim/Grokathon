@@ -19,8 +19,8 @@ import type {
 export function createApplication(db: Database.Database, input: CreateApplicationInput): Application {
   const stmt = db.prepare(`
     INSERT INTO applications (
-      id, job_id, applicant_id, cover_letter, applied_at, status
-    ) VALUES (?, ?, ?, ?, ?, 'PENDING')
+      id, job_id, applicant_id, cover_letter, profile_summary, bid_amount, applied_at, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
   `);
 
   stmt.run(
@@ -28,6 +28,8 @@ export function createApplication(db: Database.Database, input: CreateApplicatio
     input.jobId,
     input.applicantId,
     input.coverLetter || null,
+    input.profileSummary || null,
+    input.bidAmount || null,
     input.appliedAt
   );
 
@@ -139,6 +141,7 @@ function rowToApplication(row: ApplicationRow): Application {
     applicantId: row.applicant_id,
     coverLetter: row.cover_letter,
     profileSummary: row.profile_summary,
+    bidAmount: row.bid_amount,
     appliedAt: row.applied_at,
     status: row.status as ApplicationStatus,
   };

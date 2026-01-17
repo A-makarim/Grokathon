@@ -13,6 +13,7 @@ import { jobsApi } from "./jobs.js";
 import { applicantsApi } from "./applicants.js";
 import { applicationsApi } from "./applications.js";
 import { suggestionsApi } from "./suggestions.js";
+import { xaiWorkApi } from "./xai-work.js";
 
 // =============================================================================
 // SETUP

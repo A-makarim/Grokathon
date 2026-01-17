@@ -22,6 +22,8 @@ import type {
   Suggestion,
   CreateSuggestionInput,
   SuggestionFilters,
+  XaiWork,
+  XaiWorkStatus,
 } from "./types.js";
 
 // =============================================================================
@@ -180,6 +182,38 @@ export class JobRegistry {
 
   listSuggestions(filters?: SuggestionFilters): Suggestion[] {
     return this.storage.listSuggestions(filters);
+  }
+
+  // ===========================================================================
+  // XAI WORK OPERATIONS
+  // ===========================================================================
+
+  createXaiWork(jobId: string): XaiWork {
+    return this.storage.createXaiWork(jobId);
+  }
+
+  getXaiWork(id: string): XaiWork | undefined {
+    return this.storage.getXaiWork(id);
+  }
+
+  getXaiWorkByJob(jobId: string): XaiWork | undefined {
+    return this.storage.getXaiWorkByJob(jobId);
+  }
+
+  updateXaiWorkStatus(id: string, status: XaiWorkStatus): void {
+    this.storage.updateXaiWorkStatus(id, status);
+  }
+
+  saveXaiWorkOutput(id: string, output: string, artifacts?: string[], executionNotes?: string): void {
+    this.storage.saveXaiWorkOutput(id, output, artifacts, executionNotes);
+  }
+
+  saveXaiWorkError(id: string, errorMessage: string): void {
+    this.storage.saveXaiWorkError(id, errorMessage);
+  }
+
+  listPendingXaiWork(limit = 50): XaiWork[] {
+    return this.storage.listPendingXaiWork(limit);
   }
 
   // ===========================================================================

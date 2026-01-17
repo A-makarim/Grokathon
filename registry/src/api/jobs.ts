@@ -5,10 +5,126 @@
  */
 
 import { Hono } from "hono";
+import { xai } from "@ai-sdk/xai";
+import { generateText } from "ai";
 import { registry } from "./index.js";
 import { authMiddleware, agentMiddleware } from "./middleware.js";
 import type { CreateJobInput, JobStatus, JobComplexity, Job, User } from "../types.js";
 import { nanoid } from "nanoid";
+
+// =============================================================================
+// XAI WORK PROCESSING
+// =============================================================================
+
+const XAI_WORK_SYSTEM_PROMPT = `You are an AI agent powered by xAI (Grok) that completes bounty tasks.
+
+When given a job/bounty, you will:
+1. Analyze the task requirements carefully
+2. Break down the work into clear steps
+3. Execute the work to the best of your ability
+4. Produce high-quality deliverables
+
+Your output should be:
+- Clear and well-structured
+- Directly addressing the task requirements
+- Professional and thorough
+- Include any code, text, or analysis as requested
+
+Format your response as a detailed work output that the job poster can review and use.`;
+
+/**
+ * Trigger xAI to process a work item
+ */
+async function triggerXaiWork(workId: string, job: Job): Promise<void> {
+  console.log(`[xAI Work] Starting work ${workId} for job ${job.id}`);
+
+  // Update status to in progress
+  registry.updateXaiWorkStatus(workId, "IN_PROGRESS");
+
+  try {
+    // Build the prompt
+    const sections: string[] = [];
+    sections.push(`# Task: ${job.title}`);
+    sections.push("");
+    sections.push(`## Description`);
+    sections.push(job.description);
+
+    if (job.requirements) {
+      sections.push("");
+      sections.push(`## Requirements`);
+      sections.push(job.requirements);
+    }
+
+    if (job.complexity) {
+      sections.push("");
+      sections.push(`## Complexity Level: ${job.complexity}`);
+    }
+
+    if (job.budget) {
+      sections.push("");
+      sections.push(`## Budget: $${job.budget}`);
+    }
+
+    sections.push("");
+    sections.push(`---`);
+    sections.push("");
+    sections.push(`Please complete this task to the best of your ability. Provide detailed, high-quality output that directly addresses all requirements. Structure your response clearly with sections and formatting as appropriate for the task type.`);
+
+    const prompt = sections.join("\n");
+
+    // Call xAI (Grok) to generate the work output
+    const result = await generateText({
+      model: xai(process.env.XAI_MODEL || "grok-3-mini"),
+      system: XAI_WORK_SYSTEM_PROMPT,
+      prompt,
+      maxTokens: 4000,
+      providerOptions: {
+        xai: {
+          // Enable Live Search for research-heavy tasks
+          searchParameters: {
+            mode: "auto",
+            returnCitations: true,
+            maxSearchResults: 10,
+            sources: [
+              { type: "web", safeSearch: true },
+              { type: "news", safeSearch: true },
+            ],
+          },
+        },
+      },
+    });
+
+    const output = result.text;
+    
+    // Extract any sources/citations as artifacts
+    const artifacts: string[] = [];
+    if (result.sources && result.sources.length > 0) {
+      for (const source of result.sources) {
+        if (source.url) {
+          artifacts.push(source.url);
+        }
+      }
+    }
+
+    // Build execution notes
+    const executionNotes = [
+      `Model: ${process.env.XAI_MODEL || "grok-3-mini"}`,
+      `Generated at: ${new Date().toISOString()}`,
+      result.sources?.length ? `Sources used: ${result.sources.length}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    // Save the output
+    registry.saveXaiWorkOutput(workId, output, artifacts, executionNotes);
+
+    console.log(`[xAI Work] Completed work ${workId}`);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[xAI Work] Failed work ${workId}:`, errorMessage);
+    registry.saveXaiWorkError(workId, errorMessage);
+  }
+}
 
 export const jobsApi = new Hono();
 
@@ -185,6 +301,8 @@ jobsApi.patch("/:id/approve", async (c) => {
 /**
  * Assign a job to an applicant
  * PATCH /jobs/:id/assign
+ * 
+ * If assigneeId is 'xai' or 'xai-agent', automatically triggers xAI to work on it.
  */
 jobsApi.patch("/:id/assign", async (c) => {
   const id = c.req.param("id");
@@ -212,6 +330,25 @@ jobsApi.patch("/:id/assign", async (c) => {
   try {
     registry.assignJob(id, body.assigneeId);
     const updatedJob = registry.getJob(id);
+    
+    // If assigned to xAI, automatically trigger xAI work
+    const isXaiAssignment = body.assigneeId === "xai" || body.assigneeId === "xai-agent";
+    if (isXaiAssignment && updatedJob) {
+      // Create xAI work entry and start async processing
+      const work = registry.createXaiWork(id);
+      
+      // Trigger xAI work processing via internal call
+      triggerXaiWork(work.id, updatedJob).catch((err) => {
+        console.error(`[Jobs API] Failed to trigger xAI work:`, err);
+      });
+      
+      return c.json({ 
+        ...updatedJob, 
+        xaiWork: { id: work.id, status: work.status },
+        message: "Job assigned to xAI. Work is being processed." 
+      });
+    }
+    
     return c.json(updatedJob);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
