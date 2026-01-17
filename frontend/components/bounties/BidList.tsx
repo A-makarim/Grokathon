@@ -32,24 +32,23 @@ export function BidList({ bountyId, maxBudget, currency }: BidListProps) {
 
   if (isLoading) {
     return (
-      <div className="border border-[#2F3336] rounded-xl p-6 bg-gradient-to-br from-[#000000] to-[#0A0A0A]">
-        <div className="animate-pulse">
-          <div className="h-6 bg-[#16181C] rounded w-1/2 mb-4" />
-          <div className="space-y-3">
-            <div className="h-12 bg-[#16181C] rounded" />
-            <div className="h-12 bg-[#16181C] rounded" />
-          </div>
+      <div className="animate-pulse">
+        <div className="h-6 bg-[#16181C] rounded w-1/2 mb-4" />
+        <div className="space-y-3">
+          <div className="h-12 bg-[#16181C] rounded" />
+          <div className="h-12 bg-[#16181C] rounded" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="border border-[#2F3336] rounded-xl p-6 bg-gradient-to-br from-[#000000] to-[#0A0A0A]">
+    <div>
       {/* Header */}
       <div className="mb-6">
+        <div className="text-[11px] uppercase tracking-wider text-[#71767B] mb-2 font-medium">Applicants</div>
         <h3 className="text-[20px] font-bold text-[#E7E9EA] mb-1">
-          Applicants ({applications.length})
+          {applications.length} {applications.length === 1 ? 'Application' : 'Applications'}
         </h3>
         <p className="text-[13px] text-[#71767B]">
           People who applied for this bounty

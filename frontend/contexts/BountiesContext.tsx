@@ -18,8 +18,24 @@ interface BountiesContextType {
 
 const BountiesContext = createContext<BountiesContextType | undefined>(undefined);
 
+// Extract Twitter handle from tweet URL (e.g., https://twitter.com/keerthanenr/status/123)
+function extractTwitterHandle(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status/);
+  return match ? match[1] : undefined;
+}
+
 // Convert Job from API to Bounty for UI
 function jobToBounty(job: Job): Bounty {
+  // Priority: 1) Extract from source tweet URL, 2) Use enriched creator info, 3) Fallback
+  const tweetAuthor = extractTwitterHandle(job.sourceTweetUrl);
+  const creatorName = tweetAuthor || job.creator?.name || 'Job Creator';
+  const creatorHandle = tweetAuthor 
+    ? `@${tweetAuthor}`
+    : job.creator?.twitterHandle 
+      ? (job.creator.twitterHandle.startsWith('@') ? job.creator.twitterHandle : `@${job.creator.twitterHandle}`)
+      : undefined;
+  
   return {
     id: job.id,
     title: job.title,
@@ -29,10 +45,10 @@ function jobToBounty(job: Job): Bounty {
     currency: 'USD',
     status: jobStatusToBountyStatus(job.status),
     poster: {
-      id: job.createdBy || 'system',
-      name: 'Job Creator',
+      id: tweetAuthor || job.creator?.id || job.createdBy || 'system',
+      name: creatorName,
       role: 'user',
-      twitterHandle: '@xbounty',
+      twitterHandle: creatorHandle,
       createdAt: job.createdAt,
     },
     postedAt: new Date(job.createdAt),

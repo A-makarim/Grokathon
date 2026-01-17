@@ -9,7 +9,7 @@ interface ApplicationsContextType {
   isLoading: boolean;
   error: string | null;
   getApplicationsForBounty: (bountyId: string) => Promise<Application[]>;
-  submitApplication: (jobId: string, coverLetter?: string) => Promise<Application>;
+  submitApplication: (jobId: string, coverLetter?: string, bidAmount?: number) => Promise<Application>;
   getUserApplicationForBounty: (bountyId: string, userId: string) => Application | undefined;
   refreshMyApplications: () => Promise<void>;
 }
@@ -57,16 +57,16 @@ export function ApplicationsProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  const submitApplication = useCallback(async (jobId: string, coverLetter?: string): Promise<Application> => {
+  const submitApplication = useCallback(async (jobId: string, coverLetter?: string, bidAmount?: number): Promise<Application> => {
     setIsLoading(true);
     setError(null);
     try {
-      const app = await api.submitApplication(jobId, coverLetter);
+      const app = await api.submitApplication(jobId, coverLetter, bidAmount);
       const newApplication: Application = {
         ...app,
         bountyId: app.jobId,
         message: app.coverLetter || '',
-        bidAmount: 0,
+        bidAmount: bidAmount || app.bidAmount || 0,
         bidCurrency: 'USD' as const,
       };
       setApplications(prev => [...prev, newApplication]);

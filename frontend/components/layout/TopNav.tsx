@@ -52,45 +52,49 @@ export function TopNav() {
                 <span className="text-[20px] font-bold text-[#E7E9EA]">Bounties</span>
               </Link>
 
-              {/* Main Navigation Links */}
-              <div className="hidden md:flex items-center gap-6">
+            {/* Main Navigation Links */}
+            <div className="hidden md:flex items-center gap-6">
+              <Link
+                href="/browse"
+                className={`text-[15px] font-medium transition-colors hover:text-[#E7E9EA] ${
+                  isActive('/browse') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
+                }`}
+              >
+                Browse Bounties
+              </Link>
                 <Link
-                  href="/"
+                  href="/applications"
                   className={`text-[15px] font-medium transition-colors hover:text-[#E7E9EA] ${
-                    isActive('/') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
+                    isActive('/applications') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
                   }`}
                 >
-                  Browse Bounties
+                  My Applications
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/bookmarks"
                   className={`text-[15px] font-medium transition-colors hover:text-[#E7E9EA] ${
-                    isActive('/dashboard') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
+                    isActive('/bookmarks') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
                   }`}
                 >
-                  Dashboard
+                  Bookmarks
                 </Link>
-                {isAuthenticated && (
-                  <Link
-                    href="/applications"
-                    className={`text-[15px] font-medium transition-colors hover:text-[#E7E9EA] ${
-                      isActive('/applications') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
-                    }`}
-                  >
-                    My Applications
-                  </Link>
-                )}
               </div>
             </div>
 
             {/* Right: Actions */}
             <div className="flex items-center gap-3">
+              <Link href="/bounties/create">
+                <Button variant="primary" size="md">
+                  Post Bounty
+                </Button>
+              </Link>
+
               {isLoading ? (
                 <div className="w-6 h-6 border-2 border-[#1D9BF0] border-t-transparent rounded-full animate-spin" />
               ) : isAuthenticated ? (
                 <>
-                  {/* User Menu */}
-                  <div className="flex items-center gap-2">
+                  {/* User Info */}
+                  <div className="hidden sm:flex items-center gap-2">
                     <span className="text-[14px] text-[#71767B]">
                       {currentUser?.twitterHandle ? `@${currentUser.twitterHandle}` : currentUser?.name}
                     </span>
@@ -108,24 +112,21 @@ export function TopNav() {
                   </button>
                 </>
               ) : (
-                <Button variant="primary" size="md" onClick={() => setShowAuthModal(true)}>
+                <Button variant="secondary" size="md" onClick={() => setShowAuthModal(true)}>
                   Connect
                 </Button>
               )}
 
-              {/* Dashboard Link (Mobile) */}
-              {isAuthenticated && (
-                <Link
-                  href="/dashboard"
-                  className={`md:hidden p-2 rounded-full transition-colors hover:bg-white/[0.03] ${
-                    isActive('/dashboard') ? 'text-[#1D9BF0]' : 'text-[#71767B]'
-                  }`}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M5.651 19h12.698c-.337-1.8-1.023-3.21-1.945-4.19C15.318 13.65 13.838 13 12 13s-3.317.65-4.404 1.81c-.922.98-1.608 2.39-1.945 4.19zm.486-5.56C7.627 11.85 9.648 11 12 11s4.373.85 5.863 2.44c1.477 1.58 2.366 3.8 2.632 6.46l.11 1.1H3.395l.11-1.1c.266-2.66 1.155-4.88 2.632-6.46zM12 4c-1.105 0-2 .9-2 2s.895 2 2 2 2-.9 2-2-.895-2-2-2zM8 6c0-2.21 1.791-4 4-4s4 1.79 4 4-1.791 4-4 4-4-1.79-4-4z" />
-                  </svg>
-                </Link>
-              )}
+              <Link
+                href="/dashboard"
+                className={`p-2 rounded-full transition-colors hover:bg-white/[0.03] ${
+                  isActive('/dashboard') ? 'text-[#1D9BF0]' : 'text-[#71767B]'
+                }`}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                  <path d="M5.651 19h12.698c-.337-1.8-1.023-3.21-1.945-4.19C15.318 13.65 13.838 13 12 13s-3.317.65-4.404 1.81c-.922.98-1.608 2.39-1.945 4.19zm.486-5.56C7.627 11.85 9.648 11 12 11s4.373.85 5.863 2.44c1.477 1.58 2.366 3.8 2.632 6.46l.11 1.1H3.395l.11-1.1c.266-2.66 1.155-4.88 2.632-6.46zM12 4c-1.105 0-2 .9-2 2s.895 2 2 2 2-.9 2-2-.895-2-2-2zM8 6c0-2.21 1.791-4 4-4s4 1.79 4 4-1.791 4-4 4-4-1.79-4-4z" />
+                </svg>
+              </Link>
             </div>
           </div>
         </div>

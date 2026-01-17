@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Avatar } from '@/components/ui/Avatar';
 import { formatTimeAgo, formatReward } from '@/lib/utils';
 import type { Bounty } from '@/lib/types';
 
@@ -24,28 +25,41 @@ export function BountyCard({ bounty }: BountyCardProps) {
 
   return (
     <article
-      className="group relative p-6 cursor-pointer hover:bg-[#0A0A0A] transition-colors duration-200 border border-[#2F3336] rounded-xl"
+      className="group relative p-6 cursor-pointer hover:bg-[#0A0A0A] transition-colors duration-200"
       onClick={handleClick}
     >
-      {/* Corner squares on hover - x.ai style */}
-      <div className="absolute top-2 left-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute top-2 right-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute bottom-2 left-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute bottom-2 right-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      {/* Corner squares on hover - x.ai style - positioned at grid intersections */}
+      <div className="absolute -top-1 -left-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
+      <div className="absolute -top-1 -right-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
+      <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
+      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
 
-      {/* Header: Source info */}
+      {/* Header: User Info */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 text-[13px] text-[#71767B]">
-          {bounty.sourceTweetUrl && !bounty.sourceTweetUrl.includes('/test/') && !bounty.sourceTweetUrl.includes('/example/') && (
-            <div className="flex items-center gap-1">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-              <span>From tweet</span>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Avatar
+            src={bounty.poster.avatar || '/default-avatar.svg'}
+            alt={bounty.poster.name}
+            size="xs"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[14px] font-medium text-[#E7E9EA] truncate">
+                {bounty.poster.name}
+              </span>
+              {bounty.poster.twitterHandle && (
+                <>
+                  <span className="text-[13px] text-[#71767B]">
+                    {bounty.poster.twitterHandle.startsWith('@') ? bounty.poster.twitterHandle : `@${bounty.poster.twitterHandle}`}
+                  </span>
+                  <span className="text-[13px] text-[#71767B]">·</span>
+                </>
+              )}
+              <span className="text-[13px] text-[#71767B]">
+                {formatTimeAgo(bounty.postedAt)}
+              </span>
             </div>
-          )}
-          <span>·</span>
-          <span>{formatTimeAgo(bounty.postedAt)}</span>
+          </div>
         </div>
 
         {/* Bookmark icon */}
@@ -78,26 +92,17 @@ export function BountyCard({ bounty }: BountyCardProps) {
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        {/* Complexity & Reward */}
-        <div className="flex items-center gap-3">
-          {bounty.complexity && (
-            <span className="px-2 py-0.5 text-[11px] font-medium bg-[#1D9BF0]/10 text-[#1D9BF0] rounded-full">
-              {bounty.complexity}
-            </span>
-          )}
-          {bounty.reward > 0 && (
-            <div className="flex items-baseline gap-1">
-              <span className="text-[12px] text-[#71767B]">Up to</span>
-              <span className="text-[16px] font-bold text-[#E7E9EA]">
-                {formatReward(bounty.reward, bounty.currency)}
-              </span>
-            </div>
-          )}
+        {/* Reward */}
+        <div className="flex items-baseline gap-1">
+          <span className="text-[12px] text-[#71767B]">Up to</span>
+          <span className="text-[18px] font-bold text-[#E7E9EA]">
+            {formatReward(bounty.reward, bounty.currency)}
+          </span>
         </div>
 
-        {/* Status indicator */}
-        <span className="px-2 py-0.5 text-[11px] font-medium bg-[#00BA7C]/10 text-[#00BA7C] rounded-full">
-          Open
+        {/* Applicants */}
+        <span className="text-[12px] text-[#71767B]">
+          {bounty.applicantCount} {bounty.applicantCount === 1 ? 'bid' : 'bids'}
         </span>
       </div>
     </article>

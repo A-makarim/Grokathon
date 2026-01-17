@@ -33,6 +33,7 @@ export const JOB_COMPLEXITIES: { value: JobComplexity; label: string }[] = [
 export const DEFAULT_CURRENCY: Currency = 'USD';
 
 export const MIN_BID_AMOUNT = 1;
+export const MAX_TITLE_LENGTH = 150;
 export const MAX_DESCRIPTION_LENGTH = 2000;
 export const MAX_COVER_LETTER_LENGTH = 500;
 

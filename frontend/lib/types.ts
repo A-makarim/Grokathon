@@ -26,6 +26,12 @@ export type JobStatus = 'PENDING_APPROVAL' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED
 export type BountyStatus = 'open' | 'in_progress' | 'completed' | 'cancelled' | 'pending';
 export type JobComplexity = 'SIMPLE' | 'MODERATE' | 'COMPLEX';
 
+export interface JobCreator {
+  id: string;
+  name: string;
+  twitterHandle?: string;
+}
+
 export interface Job {
   id: string;
   title: string;
@@ -41,6 +47,8 @@ export interface Job {
   approvedAt: string | null;
   assignedTo: string | null;
   completedAt: string | null;
+  // Enriched creator info from registry
+  creator?: JobCreator;
 }
 
 // Legacy Bounty type for backward compatibility

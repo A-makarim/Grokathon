@@ -19,6 +19,8 @@ export const jobsApi = new Hono();
 /**
  * List open jobs
  * GET /jobs/open?complexity=SIMPLE&limit=50&offset=0
+ * 
+ * Returns jobs with creator info (name, twitterHandle) when available.
  */
 jobsApi.get("/open", (c) => {
   const complexity = c.req.query("complexity")?.split(",") as JobComplexity[] | undefined;
@@ -32,7 +34,25 @@ jobsApi.get("/open", (c) => {
     offset,
   });
 
-  return c.json({ jobs, total: jobs.length });
+  // Enrich jobs with creator info
+  const enrichedJobs = jobs.map(job => {
+    if (job.createdBy) {
+      const creator = registry.getUser(job.createdBy);
+      if (creator) {
+        return {
+          ...job,
+          creator: {
+            id: creator.id,
+            name: creator.name,
+            twitterHandle: creator.twitterHandle,
+          },
+        };
+      }
+    }
+    return job;
+  });
+
+  return c.json({ jobs: enrichedJobs, total: enrichedJobs.length });
 });
 
 /**
@@ -64,6 +84,8 @@ jobsApi.get("/pending", authMiddleware, (c) => {
 /**
  * Get a single job
  * GET /jobs/:id
+ * 
+ * Returns job with creator info (name, twitterHandle) when available.
  */
 jobsApi.get("/:id", (c) => {
   const id = c.req.param("id");
@@ -71,6 +93,21 @@ jobsApi.get("/:id", (c) => {
 
   if (!job) {
     return c.json({ error: "Job not found" }, 404);
+  }
+
+  // Enrich with creator info
+  if (job.createdBy) {
+    const creator = registry.getUser(job.createdBy);
+    if (creator) {
+      return c.json({
+        ...job,
+        creator: {
+          id: creator.id,
+          name: creator.name,
+          twitterHandle: creator.twitterHandle,
+        },
+      });
+    }
   }
 
   return c.json(job);

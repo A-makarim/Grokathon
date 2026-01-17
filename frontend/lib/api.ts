@@ -178,11 +178,11 @@ class ApiClient {
     );
   }
 
-  async submitApplication(jobId: string, coverLetter?: string) {
+  async submitApplication(jobId: string, coverLetter?: string, bidAmount?: number) {
     return this.request<any>(
       'POST',
       '/applications',
-      { jobId, coverLetter },
+      { jobId, coverLetter, bidAmount },
       true
     );
   }
