@@ -97,7 +97,7 @@ export default function BountyDetailPage({ params }: PageProps) {
             createdAt: jobData.createdAt,
           },
           postedAt: new Date(jobData.createdAt),
-          tags: jobData.complexity ? [jobData.complexity.toLowerCase()] : [],
+          tags: [], // Tags would come from job metadata if available
           applicantCount: 0,
           viewCount: 0,
           bookmarkCount: 0,
@@ -514,9 +514,6 @@ export default function BountyDetailPage({ params }: PageProps) {
               )}
 
               <div className="flex flex-wrap items-center gap-2 mb-4">
-                {bounty.complexity && (
-                  <Badge variant="default">{bounty.complexity}</Badge>
-                )}
                 <Badge variant="default">{bounty.category}</Badge>
               </div>
 

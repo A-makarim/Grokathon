@@ -42,4 +42,8 @@ export type {
   Suggestion,
   CreateSuggestionInput,
   SuggestionFilters,
+  
+  // xAI Work
+  XaiWorkStatus,
+  XaiWork,
 } from "./types.js";

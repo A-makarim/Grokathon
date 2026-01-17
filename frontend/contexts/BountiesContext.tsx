@@ -52,7 +52,7 @@ function jobToBounty(job: Job): Bounty {
       createdAt: job.createdAt,
     },
     postedAt: new Date(job.createdAt),
-    tags: job.complexity ? [job.complexity.toLowerCase()] : [],
+    tags: [], // Tags would come from job metadata if available
     applicantCount: 0,
     viewCount: 0,
     bookmarkCount: 0,
