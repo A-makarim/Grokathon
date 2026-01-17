@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* X.com Color System */
+:root {
+  --x-bg: #000000;
+  --x-surface: #16181C;
+  --x-border: #2F3336;
+  --x-text-primary: #E7E9EA;
+  --x-text-secondary: #71767B;
+  --x-text-tertiary: #536471;
+  --x-blue: #1D9BF0;
+  --x-blue-hover: #1A8CD8;
+  --x-blue-light: rgba(29, 155, 240, 0.1);
+  --x-success: #00BA7C;
+  --x-warning: #FFD400;
+  --x-error: #F4212E;
+}
+
+@theme inline {
+  /* Use X colors */
+  --color-x-bg: var(--x-bg);
+  --color-x-surface: var(--x-surface);
+  --color-x-border: var(--x-border);
+  --color-x-text-primary: var(--x-text-primary);
+  --color-x-text-secondary: var(--x-text-secondary);
+  --color-x-blue: var(--x-blue);
+  --color-x-blue-hover: var(--x-blue-hover);
+
+  /* System fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+body {
+  background: var(--x-bg);
+  color: var(--x-text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbar to match X.com */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--x-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--x-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--x-text-tertiary);
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease-out;
+}
