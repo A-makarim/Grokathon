@@ -148,7 +148,7 @@ export function JobDetailModal({
                 {isGeneratingSuggestion && !job.suggestion ? (
                   <div className="w-5 h-5 border-2 border-[#00BA7C] border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <span className="text-[18px]">🤖</span>
+                  <span className="text-[12px] font-bold text-[#00BA7C]">AI</span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -215,7 +215,7 @@ export function JobDetailModal({
                     Analyzing...
                   </span>
                 ) : (
-                  <>🤖 Get AI Suggestion</>
+                  <>Get AI Suggestion</>
                 )}
               </Button>
             )}
@@ -323,7 +323,7 @@ export function JobDetailModal({
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-[15px] font-bold text-[#E7E9EA] mb-1">
-                    🤖 Assign to xAI Agent
+                    Assign to xAI Agent
                   </h4>
                   <p className="text-[13px] text-[#71767B]">
                     Let AI handle this task automatically
@@ -340,11 +340,11 @@ export function JobDetailModal({
             </div>
           )}
 
-          {/* Close Job Button */}
+          {/* Close Bounty Button */}
           {canManageJob && job.status === 'OPEN' && (
             <div className="mt-6 pt-6 border-t border-[#2F3336]">
               <Button variant="ghost" onClick={onCloseJob} className="w-full text-[#F4212E] hover:bg-[#F4212E]/10">
-                Close Job
+                Close Bounty
               </Button>
             </div>
           )}

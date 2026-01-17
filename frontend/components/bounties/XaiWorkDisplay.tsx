@@ -65,7 +65,7 @@ export function XaiWorkDisplay({ work, onRetry, isRetrying }: XaiWorkDisplayProp
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1D9BF0] to-[#00BA7C] flex items-center justify-center">
-              <span className="text-[18px]">🤖</span>
+              <span className="text-[12px] font-bold text-white">xAI</span>
             </div>
             <div>
               <h3 className="text-[18px] font-bold text-[#E7E9EA]">

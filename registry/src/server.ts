@@ -120,5 +120,3 @@ API Endpoints:
   POST /xai-work/:id/retry        Retry failed xAI work
 `);
 });
-
-});

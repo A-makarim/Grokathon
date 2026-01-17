@@ -118,7 +118,7 @@ export default function DashboardPage() {
           </div>
           <h2 className="text-[20px] font-bold text-[#E7E9EA] mb-2">Connect to view Dashboard</h2>
           <p className="text-[15px] text-[#71767B] mb-6">
-            Sign in with your Twitter/X username to access the admin dashboard and manage job applications.
+            Sign in with your Twitter/X username to access the admin dashboard and manage bounty applications.
           </p>
           <p className="text-[13px] text-[#71767B]">
             Click the <span className="text-[#1D9BF0] font-medium">Connect</span> button in the top right to get started.
@@ -154,10 +154,10 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-[24px] font-bold text-[#E7E9EA] mb-2">
-            My Jobs
+            My Bounties
           </h1>
           <p className="text-[15px] text-[#71767B]">
-            Manage your posted jobs, view applications, and get AI suggestions
+            Manage your posted bounties, view applications, and get AI suggestions
           </p>
         </div>
 
@@ -174,7 +174,7 @@ export default function DashboardPage() {
         {/* Stats Grid - Inspiration style with borders */}
         <div className="grid grid-cols-2 md:grid-cols-4 border-t border-l border-[#2F3336] mb-8">
           <div className="border-r border-b border-[#2F3336] p-6 hover:bg-[#0A0A0A] transition-colors">
-            <p className="text-[13px] text-[#71767B] font-medium mb-2">My Jobs</p>
+            <p className="text-[13px] text-[#71767B] font-medium mb-2">My Bounties</p>
             <p className="text-[32px] font-bold text-[#E7E9EA]">{jobs.length}</p>
           </div>
           <div className="border-r border-b border-[#2F3336] p-6 hover:bg-[#0A0A0A] transition-colors">
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                   : 'text-[#71767B] hover:text-[#E7E9EA]'
               )}
             >
-              Open Jobs ({openJobs.length})
+              Open Bounties ({openJobs.length})
               {activeTab === 'open' && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#1D9BF0] rounded-full" />
               )}

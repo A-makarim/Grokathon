@@ -87,7 +87,6 @@ export function JobCard({ job, isSelected, onClick }: JobCardProps) {
         {/* AI Suggestion Badge */}
         {job.suggestion && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-[#00BA7C]/10 rounded-full">
-            <span className="text-[11px]">🤖</span>
             <span className="text-[11px] text-[#00BA7C] font-medium">AI Ready</span>
           </div>
         )}

@@ -58,6 +58,13 @@ export default function BountyDetailPage({ params }: PageProps) {
     ? (job.createdBy === currentUser.id || (userHandle && tweetAuthor && userHandle === tweetAuthor))
     : false;
 
+  // Generate Twitter avatar URL from handle
+  const getTwitterAvatarUrl = (handle: string | undefined): string | undefined => {
+    if (!handle) return undefined;
+    const cleanHandle = handle.startsWith('@') ? handle.slice(1) : handle;
+    return `https://unavatar.io/twitter/${cleanHandle}`;
+  };
+
   // Fetch job data
   useEffect(() => {
     async function fetchJob() {
@@ -74,12 +81,16 @@ export default function BountyDetailPage({ params }: PageProps) {
 
         // Priority: 1) Extract from source tweet URL, 2) Use enriched creator info, 3) Fallback
         const tweetAuthor = extractTwitterHandle(jobData.sourceTweetUrl);
-        const creatorName = tweetAuthor || jobData.creator?.name || 'Job Creator';
+        const creatorName = tweetAuthor || jobData.creator?.name || 'Bounty Creator';
         const creatorHandle = tweetAuthor 
           ? `@${tweetAuthor}`
           : jobData.creator?.twitterHandle 
             ? (jobData.creator.twitterHandle.startsWith('@') ? jobData.creator.twitterHandle : `@${jobData.creator.twitterHandle}`)
             : undefined;
+        
+        // Get the raw handle for avatar URL (without @)
+        const rawHandle = tweetAuthor || jobData.creator?.twitterHandle?.replace('@', '');
+        const avatarUrl = getTwitterAvatarUrl(rawHandle);
         
         setBounty({
           id: jobData.id,
@@ -94,6 +105,7 @@ export default function BountyDetailPage({ params }: PageProps) {
             name: creatorName,
             role: 'user',
             twitterHandle: creatorHandle,
+            avatar: avatarUrl,
             createdAt: jobData.createdAt,
           },
           postedAt: new Date(jobData.createdAt),
@@ -267,7 +279,7 @@ export default function BountyDetailPage({ params }: PageProps) {
         setXaiWork(result.xaiWork);
       }
     } catch (err) {
-      setOwnerError(err instanceof Error ? err.message : 'Failed to assign job');
+      setOwnerError(err instanceof Error ? err.message : 'Failed to assign bounty');
     }
   };
 
@@ -309,7 +321,7 @@ export default function BountyDetailPage({ params }: PageProps) {
       }
       refreshBounties();
     } catch (err) {
-      setOwnerError(err instanceof Error ? err.message : 'Failed to close job');
+      setOwnerError(err instanceof Error ? err.message : 'Failed to close bounty');
     }
   };
 
@@ -404,7 +416,7 @@ export default function BountyDetailPage({ params }: PageProps) {
                 Bid Submitted Successfully!
               </h4>
               <p className="text-[14px] text-[#E7E9EA] mb-2">
-                Your bid has been submitted. The job creator will review your profile.
+                Your bid has been submitted. The bounty creator will review your profile.
               </p>
               <div className="flex gap-3">
                 <button
@@ -557,112 +569,6 @@ export default function BountyDetailPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* AI Suggestion Panel */}
-            <div className="border-t border-l border-[#2F3336] mb-8">
-              <div className="p-6 border-r border-b border-[#2F3336]">
-                {/* Generating/Regenerating State - Skeleton Loading */}
-                {isGeneratingSuggestion && (
-                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#1D9BF0]/5 to-transparent rounded-xl border border-[#1D9BF0]/20">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#1D9BF0]/20 flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-[#1D9BF0] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-[15px] font-bold text-[#1D9BF0]">
-                          {suggestion ? 'Regenerating recommendation...' : 'Analyzing applicants...'}
-                        </h4>
-                      </div>
-                      {/* Skeleton text lines */}
-                      <div className="space-y-2">
-                        <div className="h-4 bg-[#2F3336] rounded animate-pulse w-3/4" />
-                        <div className="h-4 bg-[#2F3336] rounded animate-pulse w-full" />
-                        <div className="h-4 bg-[#2F3336] rounded animate-pulse w-2/3" />
-                      </div>
-                      <p className="text-[12px] text-[#71767B] mt-2">
-                        Reviewing profiles and generating recommendation. This may take 15-20 seconds.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Suggestion Display - Only show when not generating */}
-                {suggestion && !isGeneratingSuggestion && (
-                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#00BA7C]/5 to-transparent rounded-xl border border-[#00BA7C]/20">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00BA7C]/20 flex items-center justify-center">
-                      <span className="text-[18px]">🤖</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-[15px] font-bold text-[#00BA7C]">
-                          AI Recommendation
-                        </h4>
-                        {suggestion.confidenceScore != null && (
-                          <span className="px-2 py-0.5 bg-[#00BA7C]/20 text-[#00BA7C] text-[11px] font-semibold rounded-full">
-                            {suggestion.confidenceScore}% confidence
-                          </span>
-                        )}
-                      </div>
-                      {suggestion.suggestXai ? (
-                        <p className="text-[14px] text-[#E7E9EA]">
-                          <strong>Recommend: xAI Agent</strong> — This task is suitable for AI automation.
-                        </p>
-                      ) : suggestion.applicant ? (
-                        <p className="text-[14px] text-[#E7E9EA]">
-                          <strong>Recommend: @{suggestion.applicant.twitterHandle}</strong>
-                        </p>
-                      ) : suggestion.suggestedApplicantId ? (
-                        <p className="text-[14px] text-[#E7E9EA]">
-                          <strong>Recommend: Human applicant</strong> — See highlighted submission below.
-                        </p>
-                      ) : null}
-                      {suggestion.reasoning && (
-                        <p className="text-[13px] text-[#71767B] mt-2 leading-relaxed">
-                          {suggestion.reasoning}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* No Suggestion Yet - Show Button */}
-                {!suggestion && !isGeneratingSuggestion && (
-                  <div className="flex items-center justify-between p-4 bg-[#16181C] rounded-xl border border-[#2F3336]">
-                    <div>
-                      <h4 className="text-[15px] font-semibold text-[#E7E9EA] mb-1">
-                        Get AI Recommendation
-                      </h4>
-                      <p className="text-[13px] text-[#71767B]">
-                        Let AI analyze applicants and suggest the best match for your bounty
-                      </p>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      onClick={handleGenerateSuggestion}
-                      disabled={isGeneratingSuggestion}
-                    >
-                      🤖 Get AI Suggestion
-                    </Button>
-                  </div>
-                )}
-
-                {/* Regenerate Button - Show when suggestion exists */}
-                {suggestion && !isGeneratingSuggestion && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      onClick={handleGenerateSuggestion}
-                      className="text-[12px] text-[#71767B] hover:text-[#E7E9EA] transition-colors flex items-center gap-1"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                        <path d="M23 4v6h-6M1 20v-6h6" />
-                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                      </svg>
-                      Regenerate Suggestion
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Submissions List */}
             <OwnerSubmissionsList
               bounty={bounty}
@@ -672,7 +578,7 @@ export default function BountyDetailPage({ params }: PageProps) {
               isGeneratingSuggestion={isGeneratingSuggestion}
             />
 
-            {/* Close Job Button */}
+            {/* Close Bounty Button */}
             {job.status === 'OPEN' && (
               <div className="mt-6 border-t border-l border-[#2F3336]">
                 <div className="p-6 border-r border-b border-[#2F3336]">
@@ -681,7 +587,7 @@ export default function BountyDetailPage({ params }: PageProps) {
                     onClick={handleCloseJob}
                     className="w-full text-[#F4212E] hover:bg-[#F4212E]/10"
                   >
-                    Close Job
+                    Close Bounty
                   </Button>
                 </div>
               </div>

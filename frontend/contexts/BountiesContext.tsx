@@ -25,16 +25,29 @@ function extractTwitterHandle(url: string | null | undefined): string | undefine
   return match ? match[1] : undefined;
 }
 
+// Generate Twitter avatar URL from handle
+function getTwitterAvatarUrl(handle: string | undefined): string | undefined {
+  if (!handle) return undefined;
+  // Remove @ prefix if present
+  const cleanHandle = handle.startsWith('@') ? handle.slice(1) : handle;
+  // Use unavatar.io service which provides Twitter profile images
+  return `https://unavatar.io/twitter/${cleanHandle}`;
+}
+
 // Convert Job from API to Bounty for UI
 function jobToBounty(job: Job): Bounty {
   // Priority: 1) Extract from source tweet URL, 2) Use enriched creator info, 3) Fallback
   const tweetAuthor = extractTwitterHandle(job.sourceTweetUrl);
-  const creatorName = tweetAuthor || job.creator?.name || 'Job Creator';
+  const creatorName = tweetAuthor || job.creator?.name || 'Bounty Creator';
   const creatorHandle = tweetAuthor 
     ? `@${tweetAuthor}`
     : job.creator?.twitterHandle 
       ? (job.creator.twitterHandle.startsWith('@') ? job.creator.twitterHandle : `@${job.creator.twitterHandle}`)
       : undefined;
+  
+  // Get the raw handle for avatar URL (without @)
+  const rawHandle = tweetAuthor || job.creator?.twitterHandle?.replace('@', '');
+  const avatarUrl = getTwitterAvatarUrl(rawHandle);
   
   return {
     id: job.id,
@@ -49,6 +62,7 @@ function jobToBounty(job: Job): Bounty {
       name: creatorName,
       role: 'user',
       twitterHandle: creatorHandle,
+      avatar: avatarUrl,
       createdAt: job.createdAt,
     },
     postedAt: new Date(job.createdAt),
@@ -77,8 +91,8 @@ export function BountiesProvider({ children }: { children: React.ReactNode }) {
       setJobs(openJobs);
       setBounties(openJobs.map(jobToBounty));
     } catch (err) {
-      console.error('Failed to fetch jobs:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load jobs');
+      console.error('Failed to fetch bounties:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load bounties');
     } finally {
       setIsLoading(false);
     }
