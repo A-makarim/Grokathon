@@ -1,0 +1,12 @@
+{
+    "project": "Grokathan",
+    "description": "X.AI Grok API Integration",
+    "api_base": "https://api.x.ai/v1",
+    "endpoints": {
+        "chat_completions": "/chat/completions"
+    },
+    "default_model": "grok-4-latest",
+    "default_temperature": 0,
+    "default_stream": false
+}
+
