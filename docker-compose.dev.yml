@@ -1,0 +1,35 @@
+# xBounty - Development Docker Compose
+#
+# Use this for local development with hot reload
+#
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up -d
+
+services:
+  # ==========================================================================
+  # Registry - Development Mode with Volume Mount
+  # ==========================================================================
+  registry:
+    build:
+      context: .
+      dockerfile: registry/Dockerfile
+      target: base  # Stop at base stage for dev
+    container_name: xbounty-registry-dev
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./registry/src:/app/registry/src
+      - ./common:/app/common
+      - registry-data:/app/data
+    environment:
+      - NODE_ENV=development
+      - PORT=3100
+    command: pnpm --filter @xbounty/registry dev
+    restart: unless-stopped
+
+volumes:
+  registry-data:
+
+networks:
+  default:
+    name: xbounty-dev

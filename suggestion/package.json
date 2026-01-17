@@ -1,0 +1,24 @@
+{
+  "name": "@xbounty/suggestion",
+  "version": "1.0.0",
+  "description": "Suggestion Agent - Ranks applicants and recommends best candidate",
+  "type": "module",
+  "main": "dist/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/xai": "^1.0.7",
+    "@hono/node-server": "^1.14.0",
+    "ai": "^4.0.38",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

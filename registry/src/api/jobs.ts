@@ -1,0 +1,259 @@
+/**
+ * Jobs API
+ *
+ * Job CRUD and queries for the job marketplace.
+ */
+
+import { Hono } from "hono";
+import { registry } from "./index.js";
+import { authMiddleware, agentMiddleware } from "./middleware.js";
+import type { CreateJobInput, JobStatus, JobComplexity } from "../types.js";
+import { nanoid } from "nanoid";
+
+export const jobsApi = new Hono();
+
+// =============================================================================
+// PUBLIC ENDPOINTS (read-only)
+// =============================================================================
+
+/**
+ * List open jobs
+ * GET /jobs/open?complexity=SIMPLE&limit=50&offset=0
+ */
+jobsApi.get("/open", (c) => {
+  const complexity = c.req.query("complexity")?.split(",") as JobComplexity[] | undefined;
+  const limit = parseInt(c.req.query("limit") || "50");
+  const offset = parseInt(c.req.query("offset") || "0");
+
+  const jobs = registry.listJobs({
+    status: ["OPEN"],
+    complexity,
+    limit,
+    offset,
+  });
+
+  return c.json({ jobs, total: jobs.length });
+});
+
+/**
+ * List pending jobs (requires auth - for job creators)
+ * GET /jobs/pending
+ * 
+ * NOTE: This route MUST be before /:id to avoid matching "pending" as an id
+ */
+jobsApi.get("/pending", authMiddleware, (c) => {
+  const user = c.get("user");
+  const limit = parseInt(c.req.query("limit") || "50");
+  const offset = parseInt(c.req.query("offset") || "0");
+
+  // Only show pending jobs created by this user (or all if admin/agent)
+  const filters: any = {
+    status: ["PENDING_APPROVAL"],
+    limit,
+    offset,
+  };
+
+  if (user.role !== "admin" && user.role !== "agent") {
+    filters.createdBy = user.id;
+  }
+
+  const jobs = registry.listJobs(filters);
+  return c.json({ jobs, total: jobs.length });
+});
+
+/**
+ * Get a single job
+ * GET /jobs/:id
+ */
+jobsApi.get("/:id", (c) => {
+  const id = c.req.param("id");
+  const job = registry.getJob(id);
+
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  return c.json(job);
+});
+
+// =============================================================================
+// AUTHENTICATED ENDPOINTS
+// =============================================================================
+
+jobsApi.use("/*", authMiddleware);
+
+/**
+ * Approve a job and set budget
+ * PATCH /jobs/:id/approve
+ */
+jobsApi.patch("/:id/approve", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const body = await c.req.json() as { budget: number };
+
+  const job = registry.getJob(id);
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  if (job.status !== "PENDING_APPROVAL") {
+    return c.json({ error: "Job is not pending approval" }, 400);
+  }
+
+  // Validate budget
+  if (!body.budget || body.budget <= 0) {
+    return c.json({ error: "Budget must be a positive number" }, 400);
+  }
+
+  try {
+    registry.approveJob(id, body.budget, user.id);
+    const updatedJob = registry.getJob(id);
+    return c.json(updatedJob);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 400);
+  }
+});
+
+/**
+ * Assign a job to an applicant
+ * PATCH /jobs/:id/assign
+ */
+jobsApi.patch("/:id/assign", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const body = await c.req.json() as { assigneeId: string };
+
+  const job = registry.getJob(id);
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  // Only creator, admin, or agent can assign
+  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
+    return c.json({ error: "Only job creator can assign" }, 403);
+  }
+
+  if (job.status !== "OPEN") {
+    return c.json({ error: "Job is not open" }, 400);
+  }
+
+  if (!body.assigneeId) {
+    return c.json({ error: "assigneeId is required" }, 400);
+  }
+
+  try {
+    registry.assignJob(id, body.assigneeId);
+    const updatedJob = registry.getJob(id);
+    return c.json(updatedJob);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 400);
+  }
+});
+
+/**
+ * Mark job as completed
+ * PATCH /jobs/:id/complete
+ */
+jobsApi.patch("/:id/complete", (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+
+  const job = registry.getJob(id);
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  // Only creator, admin, or agent can mark complete
+  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
+    return c.json({ error: "Only job creator can mark complete" }, 403);
+  }
+
+  if (job.status !== "IN_PROGRESS") {
+    return c.json({ error: "Job is not in progress" }, 400);
+  }
+
+  try {
+    registry.completeJob(id);
+    const updatedJob = registry.getJob(id);
+    return c.json(updatedJob);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 400);
+  }
+});
+
+/**
+ * Cancel a job
+ * PATCH /jobs/:id/cancel
+ */
+jobsApi.patch("/:id/cancel", (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+
+  const job = registry.getJob(id);
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  // Only creator can cancel
+  if (job.createdBy !== user.id && user.role !== "admin") {
+    return c.json({ error: "Only job creator can cancel" }, 403);
+  }
+
+  if (job.status === "COMPLETED" || job.status === "CANCELLED") {
+    return c.json({ error: "Job is already completed or cancelled" }, 400);
+  }
+
+  try {
+    registry.cancelJob(id);
+    const updatedJob = registry.getJob(id);
+    return c.json(updatedJob);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 400);
+  }
+});
+
+// =============================================================================
+// AGENT ENDPOINTS (requires agent or admin role)
+// =============================================================================
+
+jobsApi.use("/*", agentMiddleware);
+
+/**
+ * Create a new job (agent only - from job creation agent)
+ * POST /jobs
+ */
+jobsApi.post("/", async (c) => {
+  const body = await c.req.json() as CreateJobInput;
+
+  // Validate required fields
+  if (!body.title || body.title.trim().length === 0) {
+    return c.json({ error: "Title is required" }, 400);
+  }
+
+  if (!body.description || body.description.trim().length === 0) {
+    return c.json({ error: "Description is required" }, 400);
+  }
+
+  try {
+    const input: CreateJobInput = {
+      id: body.id || nanoid(),
+      title: body.title,
+      description: body.description,
+      requirements: body.requirements,
+      complexity: body.complexity,
+      sourceTweetId: body.sourceTweetId,
+      sourceTweetUrl: body.sourceTweetUrl,
+      createdAt: new Date().toISOString(),
+    };
+
+    const job = registry.createJob(input);
+    return c.json(job, 201);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 400);
+  }
+});

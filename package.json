@@ -1,0 +1,35 @@
+{
+  "name": "xbounty",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean",
+    "registry": "pnpm --filter @xbounty/registry start",
+    "registry:dev": "pnpm --filter @xbounty/registry dev",
+    "registry:test": "pnpm --filter @xbounty/registry test",
+    "creation": "pnpm --filter @xbounty/creation generate",
+    "creation:once": "pnpm --filter @xbounty/creation generate:once",
+    "creation:test": "pnpm --filter @xbounty/creation test",
+    "profile": "pnpm --filter @xbounty/profile dev",
+    "profile:start": "pnpm --filter @xbounty/profile start",
+    "suggestion": "pnpm --filter @xbounty/suggestion dev",
+    "suggestion:start": "pnpm --filter @xbounty/suggestion start",
+    "e2e": "pnpm exec tsx test-job-marketplace-e2e.ts",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:build": "docker-compose build",
+    "docker:ps": "docker-compose ps"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.2",
+    "tsx": "^4.21.0"
+  },
+  "packageManager": "pnpm@9.15.0+sha512.76e2379760a4328ec4415815bcd6628dee727af3779aaa4c914e3944156c4299921a89f976381ee107d41f12cfa4b66681ca9c718f0668fa0831ed4c6d8ba56c",
+  "dependencies": {
+    "@xdevplatform/xdk": "^0.3.0"
+  }
+}

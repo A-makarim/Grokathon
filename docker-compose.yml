@@ -1,0 +1,70 @@
+# xBounty - Docker Compose
+# 
+# Spins up all services:
+#   - registry:   Bounty registry API (port 3100)
+#   - creation:   Bounty creation agent
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose up -d registry     # Start only registry
+#   docker-compose logs -f creation   # Follow creation logs
+#   docker-compose down               # Stop all services
+
+services:
+  # ==========================================================================
+  # Registry - Bounty Marketplace API
+  # ==========================================================================
+  registry:
+    build:
+      context: .
+      dockerfile: registry/Dockerfile
+    container_name: xbounty-registry
+    ports:
+      - "3100:3100"
+    volumes:
+      # Persist SQLite database
+      - registry-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3100
+      - TZ=America/Los_Angeles
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r => process.exit(r.ok ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Creation Agent - AI Bounty Generation
+  # ==========================================================================
+  creation:
+    build:
+      context: .
+      dockerfile: creation/Dockerfile
+    container_name: xbounty-creation
+    depends_on:
+      registry:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - TZ=America/Los_Angeles
+      - REGISTRY_URL=http://registry:3100
+      - XAI_API_KEY=${XAI_API_KEY}
+      - BOOTSTRAP_SECRET=${BOOTSTRAP_SECRET:-xbounty-bootstrap-2024}
+      - GENERATION_INTERVAL_MS=${GENERATION_INTERVAL_MS:-1500000}
+      - MAX_BOUNTIES_PER_RUN=${MAX_BOUNTIES_PER_RUN:-5}
+    restart: unless-stopped
+
+volumes:
+  registry-data:
+    driver: local
+
+# ==========================================================================
+# Network Configuration
+# ==========================================================================
+networks:
+  default:
+    name: xbounty-network
+    driver: bridge
