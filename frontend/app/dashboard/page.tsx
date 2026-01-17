@@ -80,14 +80,43 @@ export default function DashboardPage() {
     if (!selectedJob) return;
 
     setIsGeneratingSuggestion(true);
+    setError(null);
+
     try {
-      const suggestion = await api.generateSuggestion(selectedJob.id);
-      
-      // Update the job with the new suggestion
-      setJobs(prev => prev.map(j => 
-        j.id === selectedJob.id ? { ...j, suggestion } : j
-      ));
-      setSelectedJob(prev => prev ? { ...prev, suggestion } : null);
+      // Trigger suggestion generation (returns 202 immediately)
+      await api.generateSuggestion(selectedJob.id);
+
+      // Poll for the result every 2 seconds for up to 30 seconds
+      const maxAttempts = 15;
+      let attempts = 0;
+
+      const pollForSuggestion = async (): Promise<Suggestion | null> => {
+        attempts++;
+
+        try {
+          const suggestion = await api.getSuggestionForJob(selectedJob.id);
+          return suggestion;
+        } catch (err) {
+          // Suggestion not ready yet
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return pollForSuggestion();
+          }
+          return null;
+        }
+      };
+
+      const suggestion = await pollForSuggestion();
+
+      if (suggestion) {
+        // Update the job with the new suggestion
+        setJobs(prev => prev.map(j =>
+          j.id === selectedJob.id ? { ...j, suggestion } : j
+        ));
+        setSelectedJob(prev => prev ? { ...prev, suggestion } : null);
+      } else {
+        setError('Suggestion generation timed out. Please refresh the page in a few seconds.');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate suggestion');
     } finally {
@@ -309,11 +338,37 @@ export default function DashboardPage() {
                         onClick={handleGenerateSuggestion}
                         disabled={isGeneratingSuggestion || selectedJob.applications.length === 0}
                       >
-                        {isGeneratingSuggestion ? 'Generating...' : '🤖 Get AI Suggestion'}
+                        {isGeneratingSuggestion ? (
+                          <span className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-[#1D9BF0] border-t-transparent rounded-full animate-spin" />
+                            Analyzing applicants...
+                          </span>
+                        ) : (
+                          '🤖 Get AI Suggestion'
+                        )}
                       </Button>
                     </div>
                   </div>
                 </div>
+
+                {/* AI Suggestion Loading Banner */}
+                {isGeneratingSuggestion && !selectedJob.suggestion && (
+                  <div className="p-4 bg-gradient-to-r from-[#1D9BF0]/10 to-transparent border-b border-[#2F3336]">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1D9BF0]/20 flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-[#1D9BF0] border-t-transparent rounded-full animate-spin" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-[14px] font-bold text-[#1D9BF0] mb-1">
+                          AI is analyzing applicants...
+                        </h4>
+                        <p className="text-[12px] text-[#71767B]">
+                          Reviewing profiles, evaluating experience, and generating recommendation. This may take 15-20 seconds.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* AI Suggestion Banner */}
                 {selectedJob.suggestion && (
