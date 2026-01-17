@@ -25,53 +25,71 @@ x_bearer_token = unquote(x_bearer_token) if x_bearer_token else None
 OUTPUT_FOLDER = Path(__file__).parent / "job_posters"
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
-# Visual-only poster template (NO TEXT)
-VISUAL_POSTER_STYLE = """
-Create a professional 16:9 landscape poster (1792x1008 pixels) that visually represents a job opportunity.
-
-IMPORTANT: NO TEXT OR WORDS should appear in the image - purely visual storytelling.
+# Realistic job visualization template
+REALISTIC_JOB_POSTER_STYLE = """
+Create a photorealistic 16:9 landscape poster (1792x1008 pixels) showing exactly what this job entails.
 
 Job Type: {job_type}
 
-Visual Description:
-{visual_description}
+CENTERED TEXT (place prominently in center of image):
+"{job_title_sentence}"
 
-Key Visual Elements to Include:
-{key_elements}
+Scene Description:
+{scene_description}
 
-Style Guidelines:
-- DARK THEME: Use dark, moody colors that blend seamlessly with black backgrounds
-- Deep blacks, dark blues, purples, and rich shadows
-- Dramatic lighting with subtle highlights and glows
-- AESTHETIC: Cinematic composition, visually stunning and artistic
-- REALISTIC: Photorealistic rendering, high detail textures, 3D rendered quality
-- Professional and polished look
-- High resolution (8K quality) with sharp details
-- No photographs of people
-- No text, labels, or typography anywhere in the image
-- Focus on iconic imagery that instantly communicates the job nature
-- Atmospheric lighting with rim lights and ambient glow effects
-- Color palette should be dark and sophisticated (blacks, deep blues, dark purples, subtle neon accents)
+Visual Elements (make these prominent and clear):
+{visual_elements}
+
+Color Scheme:
+{color_scheme}
+
+COMPOSITION REQUIREMENTS:
+- The job description text MUST be centered vertically and horizontally with equal spacing and highly visible
+- Use clean, bold, professional sans-serif font for the text
+- Text should have subtle glow or shadow for readability against dark background
+- Text size should be large enough to read clearly (main focal point)
+- Text should have a a lot of drop shadow (BLACK) to stand out from background and darken the background behind the text
+
+STYLE REQUIREMENTS:
+- PHOTOREALISTIC: Looks like a real photograph or cinema-quality 3D render
+- Show actual workspace, tools, equipment that make the job immediately recognizable
+- ULTRA DARK THEME: Background must be extremely dark, almost pure black (#000000 to #0a0a0a)
+- Only light sources should be screens, LEDs, or small desk lamps creating minimal illumination
+- 90% of the image should be in deep shadow with only key elements subtly lit
+- Dramatic cinematic lighting with practical sources (screens, LEDs, desk lamps) - keep these dim
+- Very high contrast between the few lit areas and the dominant dark shadows
+- Background areas not lit by screens/lights should be pure black or near-black
+- Color palette: {color_scheme} but keep overall brightness very low
+- Professional and polished aesthetic with moody, nighttime atmosphere
+- 8K quality, sharp details, realistic textures
+- The scene should clearly communicate what the job is, even without text
+- Atmospheric effects: very subtle light rays, minimal screen glow, dark ambient lighting
+- Composition should be balanced with text centered as the hero element
+- Text should have a lot of drop shadow (BLACK) to stand out from background and darken the background behind the text
+- Overall image luminosity should be very low - think dimly lit room at night
+
 """
 
 def create_job_poster_prompt(job_data: dict) -> str:
     """
-    Create a purely visual prompt using Grok's analysis of the job
-    NO TEXT will appear in the generated image
+    Create a realistic prompt with explicit centered job description
+    Image will clearly show the job even if tweet is vague
     """
     tweet_text = job_data['text']
     
     # Analyze job with Grok
     analysis = analyze_job_with_grok(tweet_text)
     
-    # Format key elements as a list
-    key_elements_text = '\n'.join([f"- {elem}" for elem in analysis.get('key_elements', [])])
+    # Format visual elements as a list
+    visual_elements_text = '\n'.join([f"- {elem}" for elem in analysis.get('visual_elements', [])])
     
-    # Create visual-only prompt
-    prompt = VISUAL_POSTER_STYLE.format(
-        job_type=analysis.get('job_type', 'job opportunity'),
-        visual_description=analysis.get('visual_description', ''),
-        key_elements=key_elements_text
+    # Create realistic job scene prompt
+    prompt = REALISTIC_JOB_POSTER_STYLE.format(
+        job_type=analysis.get('job_type', 'Professional Opportunity'),
+        job_title_sentence=analysis.get('job_title_sentence', 'Exciting job opportunity available'),
+        scene_description=analysis.get('scene_description', 'professional workspace with modern equipment'),
+        visual_elements=visual_elements_text,
+        color_scheme=analysis.get('color_scheme', 'deep blacks with subtle blue accents')
     )
     
     # Store analysis in job_data for metadata
@@ -86,22 +104,30 @@ def analyze_job_with_grok(tweet_text: str) -> dict:
     print(f"🤖 Analyzing job with Grok...")
     
     analysis_prompt = f"""
-Analyze this job posting tweet and describe what visual imagery would best represent it.
-Do NOT include any text in the description - only visual elements.
+Analyze this job posting tweet and create a clear, explicit description for a job poster image.
+Even if the tweet is vague, you should make the job clear and specific in your description.
 
 Tweet: "{tweet_text}"
 
 Provide a JSON response with:
-1. "job_type": What kind of job/work is this? (e.g., "minecraft server development", "web development", "graphic design")
-2. "visual_description": Detailed description of visual elements that represent this job being done and or in progress (NO TEXT, only imagery)
-3. "key_elements": List of 3-5 specific visual elements to include
+1. "job_type": What kind of job/work is this? (be specific)
+2. "job_title_sentence": A clear sentence that explicitly states what the job is (8-12 words, will be centered on image)
+   Example: "Looking for an experienced developer to build a Minecraft server"
+   Example: "Seeking a graphic designer to create hackathon promotional materials"
+3. "scene_description": A realistic, detailed scene showing what this job work environment looks like
+4. "visual_elements": List of 5-7 specific realistic elements that make the job instantly recognizable
+5. "color_scheme": Specific dark colors to use (e.g., "deep blue and purple with cyan accents")
 
 Example for a Minecraft server job:
 {{
-  "job_type": "Minecraft server development",
-  "visual_description": "Minecraft server development using JAVA programming, featuring iconic Minecraft blocks and pixelated landscapes. A diamond pickaxe striking blocks, with server towers and redstone circuits in the background, symbolizing server architecture and game mechanics.",
-  "key_elements": ["minecraft blocks", "pixelated landscape", "diamond pickaxe", "server towers", "redstone circuits"]
+  "job_type": "Minecraft Server Developer",
+  "job_title_sentence": "Build a high-performance Minecraft server for 100 players",
+  "scene_description": "Professional gaming setup with ultra-wide monitors displaying Minecraft server console, command terminals with server stats, glowing mechanical keyboard, server rack visible in background with blue LED indicators, Minecraft world rendering on main screen, dark room with RGB ambient lighting",
+  "visual_elements": ["Minecraft server dashboard", "command line interface", "performance graphs", "server rack with lights", "gaming peripherals", "multiple monitors", "code editor with server configs"],
+  "color_scheme": "deep blacks with cyan and green terminal glow"
 }}
+
+IMPORTANT: Make the job_title_sentence very clear and specific. If the tweet is vague, infer the most likely job description.
 
 Respond only with valid JSON.
 """
@@ -213,7 +239,7 @@ def fetch_tweet_content(tweet_url: str) -> dict:
         # Fallback to dummy data
         return {
             'id': tweet_id,
-            'text': 'Need someone to designa poster for a hackathon',
+            'text': 'Need someone to teach A levels physics',
             'author': 'unknown',
             'url': tweet_url
         }
