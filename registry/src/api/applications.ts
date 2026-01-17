@@ -12,33 +12,90 @@ import { nanoid } from "nanoid";
 
 export const applicationsApi = new Hono();
 
-// =============================================================================
-// AUTHENTICATED ENDPOINTS
-// =============================================================================
-
-applicationsApi.use("/*", authMiddleware);
+// Profile Agent configuration
+const PROFILE_AGENT_URL = process.env.PROFILE_AGENT_URL || "http://localhost:3200";
 
 /**
- * Get all applications for a job (job creator only)
+ * Trigger profile analysis for an application
+ * This is called asynchronously after application submission
+ */
+async function triggerProfileAnalysis(
+  applicationId: string,
+  applicantId: string,
+  jobId: string
+): Promise<void> {
+  // Get agent token from environment or find an agent user
+  let agentToken = process.env.AGENT_TOKEN;
+
+  if (!agentToken) {
+    // Try to find an agent user
+    const agents = registry.listUsers(0, 100);
+    const agent = agents.users.find(u => u.role === "agent");
+    if (agent) {
+      agentToken = agent.token;
+    }
+  }
+
+  if (!agentToken) {
+    console.warn("[Profile Agent] No agent token available, skipping profile analysis");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${PROFILE_AGENT_URL}/profile/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        applicantId,
+        jobId,
+        applicationId,
+        agentToken,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error((error as any).error || `HTTP ${response.status}`);
+    }
+
+    await response.json();
+    console.log(`[Profile Agent] ✓ Analysis completed for application ${applicationId}`);
+  } catch (error: unknown) {
+    // Log but don't throw - this is async and shouldn't fail the application submission
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Profile Agent] Failed to analyze application ${applicationId}:`, errorMsg);
+  }
+}
+
+// =============================================================================
+// PUBLIC ENDPOINTS (for demo purposes)
+// =============================================================================
+
+/**
+ * Get all applications for a job
  * GET /applications/job/:jobId
+ * 
+ * Public endpoint for demo purposes
  */
 applicationsApi.get("/job/:jobId", (c) => {
   const jobId = c.req.param("jobId");
-  const user = c.get("user");
 
   const job = registry.getJob(jobId);
   if (!job) {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only job creator or admin can view applications
-  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
-    return c.json({ error: "Only job creator can view applications" }, 403);
-  }
-
   const applications = registry.listApplicationsByJob(jobId);
   return c.json({ applications, total: applications.length });
 });
+
+// =============================================================================
+// AUTHENTICATED ENDPOINTS
+// =============================================================================
+
+applicationsApi.use("/*", authMiddleware);
 
 /**
  * Get my applications
@@ -109,6 +166,12 @@ applicationsApi.post("/", async (c) => {
     };
 
     const application = registry.createApplication(input);
+
+    // Trigger profile agent asynchronously (don't wait for it)
+    triggerProfileAnalysis(application.id, applicant.id, body.jobId).catch(err => {
+      console.error(`[Profile Agent] Failed to trigger analysis for application ${application.id}:`, err);
+    });
+
     return c.json(application, 201);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

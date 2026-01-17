@@ -16,7 +16,8 @@ export const CONFIG = {
   },
 
   generation: {
-    intervalMs: parseInt(process.env.GENERATION_INTERVAL_MS || "3600000", 10),
+    // 5 minutes = 300,000ms (default was 1 hour)
+    intervalMs: parseInt(process.env.GENERATION_INTERVAL_MS || "300000", 10),
     maxMarketsPerRun: parseInt(process.env.MAX_MARKETS_PER_RUN || "5", 10),
   },
 } as const;

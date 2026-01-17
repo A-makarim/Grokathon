@@ -12,6 +12,54 @@ import { nanoid } from "nanoid";
 
 export const suggestionsApi = new Hono();
 
+// Suggestion Agent configuration
+const SUGGESTION_AGENT_URL = process.env.SUGGESTION_AGENT_URL || "http://localhost:3300";
+
+/**
+ * Trigger suggestion generation for a job
+ * This is called asynchronously when a user requests a suggestion
+ */
+async function triggerSuggestionGeneration(jobId: string): Promise<void> {
+  // Get agent token from environment or find an agent user
+  let agentToken = process.env.AGENT_TOKEN;
+
+  if (!agentToken) {
+    // Try to find an agent user
+    const agents = registry.listUsers(0, 100);
+    const agent = agents.users.find(u => u.role === "agent");
+    if (agent) {
+      agentToken = agent.token;
+    }
+  }
+
+  if (!agentToken) {
+    console.warn("[Suggestion Agent] No agent token available, skipping suggestion generation");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${SUGGESTION_AGENT_URL}/suggest/${jobId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${agentToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error((error as any).error || `HTTP ${response.status}`);
+    }
+
+    await response.json();
+    console.log(`[Suggestion Agent] ✓ Suggestion generated for job ${jobId}`);
+  } catch (error: unknown) {
+    // Log but don't throw - this is async and shouldn't fail the request
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Suggestion Agent] Failed to generate suggestion for job ${jobId}:`, errorMsg);
+  }
+}
+
 // =============================================================================
 // AUTHENTICATED ENDPOINTS
 // =============================================================================
@@ -31,9 +79,10 @@ suggestionsApi.get("/job/:jobId", (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only job creator or admin can view suggestions
+  // DEMO MODE: Allow anyone to view suggestions
+  // In production, you'd want to enforce: job.createdBy === user.id || user.role === "admin" || user.role === "agent"
   if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
-    return c.json({ error: "Only job creator can view suggestions" }, 403);
+    console.log(`[Suggestions API] ⚠️  Demo mode: Allowing user ${user.id} to view suggestion for job created by ${job.createdBy}`);
   }
 
   const suggestion = registry.getSuggestionByJob(jobId);
@@ -56,25 +105,35 @@ suggestionsApi.post("/generate/:jobId", async (c) => {
   const user = c.get("user");
   const body = await c.req.json() as Partial<CreateSuggestionInput>;
 
+  console.log(`[Suggestions API] Generate suggestion requested by user ${user.id} (${user.name}, role: ${user.role}) for job ${jobId}`);
+
   const job = registry.getJob(jobId);
   if (!job) {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only job creator, agent, or admin can generate suggestions
+  console.log(`[Suggestions API] Job ${jobId} created by ${job.createdBy}, current user: ${user.id}`);
+
+  // DEMO MODE: Allow anyone to generate suggestions for any job
+  // In production, you'd want to enforce: job.createdBy === user.id || user.role === "admin" || user.role === "agent"
+  // For now, just log the access
   if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
-    return c.json({ error: "Only job creator can generate suggestions" }, 403);
+    console.log(`[Suggestions API] ⚠️  Demo mode: Allowing user ${user.id} to generate suggestion for job created by ${job.createdBy}`);
   }
 
   if (job.status !== "OPEN") {
     return c.json({ error: "Job is not open" }, 400);
   }
 
-  // If called by non-agent (job creator), return a message to wait for agent processing
-  // In production, this would trigger the Suggestion Agent asynchronously
-  if (user.role !== "agent" && user.role !== "admin") {
+  // If called by non-agent (job creator), trigger the Suggestion Agent asynchronously
+  if (user.role !== "agent") {
+    // Trigger suggestion agent in background (don't wait for it)
+    triggerSuggestionGeneration(jobId).catch(err => {
+      console.error(`[Suggestion Agent] Failed to trigger suggestion for job ${jobId}:`, err);
+    });
+
     return c.json({
-      message: "Suggestion generation requested. The Suggestion Agent will process this shortly.",
+      message: "Suggestion generation started. Refresh the page in a few seconds to see the result.",
       jobId,
     }, 202);
   }

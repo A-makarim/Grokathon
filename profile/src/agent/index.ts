@@ -35,7 +35,7 @@ async function updateApplicationSummary(applicationId: string, summary: string, 
       "Content-Type": "application/json",
       Authorization: `Bearer ${agentToken}`,
     },
-    body: JSON.stringify({ profileSummary: summary }),
+    body: JSON.stringify({ summary }),
   });
 
   if (!response.ok) {

@@ -197,8 +197,8 @@ jobsApi.patch("/:id/cancel", (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
-  // Only creator can cancel
-  if (job.createdBy !== user.id && user.role !== "admin") {
+  // Creator, admin, or agent can cancel
+  if (job.createdBy !== user.id && user.role !== "admin" && user.role !== "agent") {
     return c.json({ error: "Only job creator can cancel" }, 403);
   }
 
@@ -225,9 +225,12 @@ jobsApi.use("/*", agentMiddleware);
 /**
  * Create a new job (agent only - from job creation agent)
  * POST /jobs
+ * 
+ * Jobs are auto-approved with a default budget based on complexity.
  */
 jobsApi.post("/", async (c) => {
-  const body = await c.req.json() as CreateJobInput;
+  const user = c.get("user");
+  const body = await c.req.json() as CreateJobInput & { budget?: number };
 
   // Validate required fields
   if (!body.title || body.title.trim().length === 0) {
@@ -251,7 +254,18 @@ jobsApi.post("/", async (c) => {
     };
 
     const job = registry.createJob(input);
-    return c.json(job, 201);
+    
+    // Auto-approve with default budget based on complexity
+    const defaultBudgets: Record<string, number> = {
+      SIMPLE: 250,
+      MODERATE: 500,
+      COMPLEX: 1000,
+    };
+    const budget = body.budget || defaultBudgets[body.complexity || "MODERATE"] || 500;
+    registry.approveJob(job.id, budget, user.id);
+    
+    const approvedJob = registry.getJob(job.id);
+    return c.json(approvedJob, 201);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return c.json({ error: msg }, 400);

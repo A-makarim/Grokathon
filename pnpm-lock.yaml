@@ -83,6 +83,9 @@ importers:
       ai:
         specifier: ^4.0.38
         version: 4.3.19(react@19.2.3)(zod@3.25.76)
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
       hono:
         specifier: ^4.6.14
         version: 4.10.7
@@ -139,6 +142,9 @@ importers:
       ai:
         specifier: ^4.0.38
         version: 4.3.19(react@19.2.3)(zod@3.25.76)
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
       hono:
         specifier: ^4.6.14
         version: 4.10.7
