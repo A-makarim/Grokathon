@@ -31,9 +31,9 @@ export function TopNav() {
             {/* Main Navigation Links */}
             <div className="hidden md:flex items-center gap-6">
               <Link
-                href="/"
+                href="/browse"
                 className={`text-[15px] font-medium transition-colors hover:text-[#E7E9EA] ${
-                  isActive('/') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
+                  isActive('/browse') ? 'text-[#E7E9EA]' : 'text-[#71767B]'
                 }`}
               >
                 Browse Bounties

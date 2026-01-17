@@ -13,11 +13,24 @@ interface BountyFeedProps {
 export function BountyFeed({ bounties }: BountyFeedProps) {
   const [selectedCategory, setSelectedCategory] = useState<BountyCategory | undefined>();
   const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [searchQuery, setSearchQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(12);
 
   // Filter and sort bounties
   const filteredAndSortedBounties = useMemo(() => {
     let filtered = bounties;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((bounty) => {
+        const titleMatch = bounty.title.toLowerCase().includes(query);
+        const descriptionMatch = bounty.description.toLowerCase().includes(query);
+        const tagsMatch = bounty.tags.some((tag) => tag.toLowerCase().includes(query));
+        const categoryMatch = bounty.category.toLowerCase().includes(query);
+        return titleMatch || descriptionMatch || tagsMatch || categoryMatch;
+      });
+    }
 
     // Apply category filter
     if (selectedCategory) {
@@ -39,7 +52,7 @@ export function BountyFeed({ bounties }: BountyFeedProps) {
     });
 
     return sorted;
-  }, [bounties, selectedCategory, sortBy]);
+  }, [bounties, selectedCategory, sortBy, searchQuery]);
 
   // Bounties to display (with pagination)
   const displayedBounties = filteredAndSortedBounties.slice(0, displayCount);
@@ -47,6 +60,7 @@ export function BountyFeed({ bounties }: BountyFeedProps) {
 
   const handleClearFilters = () => {
     setSelectedCategory(undefined);
+    setSearchQuery('');
   };
 
   const handleLoadMore = () => {
@@ -59,8 +73,10 @@ export function BountyFeed({ bounties }: BountyFeedProps) {
       <BountyFilters
         selectedCategory={selectedCategory}
         sortBy={sortBy}
+        searchQuery={searchQuery}
         onCategoryChange={setSelectedCategory}
         onSortChange={setSortBy}
+        onSearchChange={setSearchQuery}
         onClearFilters={handleClearFilters}
       />
 
@@ -79,17 +95,19 @@ export function BountyFeed({ bounties }: BountyFeedProps) {
             fill="#71767B"
             className="w-16 h-16 mx-auto mb-4"
           >
-            <path d="M19.5 6h-3V4.5C16.5 3.119 15.381 2 14 2h-4C8.619 2 7.5 3.119 7.5 4.5V6h-3C3.119 6 2 7.119 2 8.5v11C2 20.881 3.119 22 4.5 22h15c1.381 0 2.5-1.119 2.5-2.5v-11C22 7.119 20.881 6 19.5 6zM9.5 4.5c0-.276.224-.5.5-.5h4c.276 0 .5.224.5.5V6h-5V4.5zm10.5 15c0 .276-.224.5-.5.5h-15c-.276 0-.5-.224-.5-.5v-11c0-.276.224-.5.5-.5h15c.276 0 .5.224.5.5v11z" />
+            <path d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.419-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z" />
           </svg>
           <h3 className="text-[20px] font-bold text-[#E7E9EA] mb-2">
-            No bounties found
+            {searchQuery ? `No results for "${searchQuery}"` : 'No bounties found'}
           </h3>
           <p className="text-[15px] text-[#71767B] mb-4">
-            Try adjusting your filters or check back later for new opportunities.
+            {searchQuery
+              ? 'Try different keywords or remove some filters.'
+              : 'Try adjusting your filters or check back later for new opportunities.'}
           </p>
-          {selectedCategory && (
+          {(selectedCategory || searchQuery) && (
             <Button variant="primary" onClick={handleClearFilters}>
-              Clear filters
+              Clear all filters
             </Button>
           )}
         </div>

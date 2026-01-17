@@ -81,7 +81,7 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
 
   if (existingApplication) {
     return (
-      <div className="border border-[#2F3336] rounded-xl p-6 bg-gradient-to-br from-[#000000] to-[#0A0A0A]">
+      <div>
         <div className="text-center py-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#00BA7C]/10 mb-4">
             <svg
@@ -100,7 +100,7 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
           <p className="text-[14px] text-[#71767B] mb-4">
             Your bid of {formatReward(existingApplication.bidAmount, existingApplication.bidCurrency)} has been submitted.
           </p>
-          <div className="bg-[#16181C] border border-[#2F3336] rounded-lg p-4 text-left">
+          <div className="bg-[#16181C] border border-[#2F3336] p-4 text-left">
             <div className="text-[12px] text-[#71767B] mb-2">Your message:</div>
             <p className="text-[14px] text-[#E7E9EA]">{existingApplication.message}</p>
           </div>
@@ -110,7 +110,7 @@ export function ApplicationForm({ bounty, existingApplication, onSuccess }: Appl
   }
 
   return (
-    <div className="border border-[#2F3336] rounded-xl p-6 bg-gradient-to-br from-[#000000] to-[#0A0A0A]">
+    <div>
       <h3 className="text-[20px] font-bold text-[#E7E9EA] mb-6">Apply for this Bounty</h3>
 
       <form onSubmit={handleSubmit} className="space-y-6">

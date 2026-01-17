@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { BountyStatusBadge } from '@/components/bounties/BountyStatusBadge';
 import { ApplicationForm } from '@/components/bounties/ApplicationForm';
 import { BidList } from '@/components/bounties/BidList';
+import { OwnerSubmissionsList } from '@/components/bounties/OwnerSubmissionsList';
 import { useBounties } from '@/contexts/BountiesContext';
 import { useApplications } from '@/contexts/ApplicationsContext';
 import { getCurrentUser } from '@/lib/mockData';
@@ -30,8 +31,11 @@ export default function BountyDetailPage({ params }: PageProps) {
   // Find the bounty
   const bounty = bounties.find((b) => b.id === id);
 
-  // Check if user already applied
-  const existingApplication = bounty
+  // Check if current user is the bounty owner
+  const isOwner = bounty ? bounty.poster.id === currentUser.id : false;
+
+  // Check if user already applied (only relevant for non-owners)
+  const existingApplication = bounty && !isOwner
     ? getUserApplicationForBounty(id, currentUser.id)
     : undefined;
 
@@ -96,9 +100,9 @@ export default function BountyDetailPage({ params }: PageProps) {
           <span className="text-[15px] font-semibold">Back</span>
         </button>
 
-        {/* Success Message */}
-        {showSuccess && (
-          <div className="mb-6 p-4 border border-[#00BA7C] bg-[#00BA7C]/10 rounded-xl flex items-start gap-3">
+        {/* Success Message - Only for non-owners */}
+        {!isOwner && showSuccess && (
+          <div className="mb-6 p-4 border border-[#00BA7C] bg-[#00BA7C]/10 flex items-start gap-3 border-t border-l border-r border-b border-[#2F3336]">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -141,137 +145,148 @@ export default function BountyDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Bounty Header */}
-        <div className="border border-[#2F3336] rounded-xl p-8 mb-6 bg-gradient-to-br from-[#000000] to-[#0A0A0A]">
-          {/* Poster Info */}
-          <div className="flex items-center gap-3 mb-6">
-            <Avatar
-              src={bounty.poster.avatar}
-              alt={bounty.poster.displayName}
-              size="md"
-              verified={bounty.poster.verified}
-            />
-            <div className="flex items-center gap-2 text-[15px]">
-              <span className="font-bold text-[#E7E9EA]">
-                {bounty.poster.displayName}
-              </span>
-              <span className="text-[#71767B]">{bounty.poster.username}</span>
-              <span className="text-[#71767B]">·</span>
-              <span className="text-[#71767B]">{formatTimeAgo(bounty.postedAt)}</span>
+        {/* Bounty Grid Layout */}
+        <div className="border-t border-l border-[#2F3336]">
+          {/* Header: Title, Status, Poster, Budget */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 border-b border-[#2F3336]">
+            {/* Main Info */}
+            <div className="lg:col-span-2 p-6 border-r border-[#2F3336]">
+              {/* Title & Status */}
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <h1 className="text-[28px] lg:text-[32px] font-bold text-[#E7E9EA] leading-tight">
+                  {bounty.title}
+                </h1>
+                <BountyStatusBadge status={bounty.status} />
+              </div>
+              
+              {/* Poster Info */}
+              <div className="flex items-center gap-3 mb-6">
+                <Avatar
+                  src={bounty.poster.avatar}
+                  alt={bounty.poster.displayName}
+                  size="md"
+                  verified={bounty.poster.verified}
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[#E7E9EA]">
+                      {bounty.poster.displayName}
+                    </span>
+                    {isOwner && (
+                      <span className="px-2 py-0.5 text-[11px] font-semibold text-[#1D9BF0] bg-[#1D9BF0]/10 border border-[#1D9BF0]/30 rounded-full">
+                        You
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[14px] text-[#71767B]">
+                    {bounty.poster.username} · {formatTimeAgo(bounty.postedAt)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tags */}
+              {bounty.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {bounty.tags.map((tag, index) => (
+                    <Badge key={index} variant="primary">
+                      #{tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Bounty Title with Status Badge */}
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <h1 className="text-[32px] font-bold text-[#E7E9EA] leading-tight flex-1">
-              {bounty.title}
-            </h1>
-            <BountyStatusBadge status={bounty.status} />
-          </div>
-
-          {/* Budget & Metadata */}
-          <div className="space-y-3 mb-6">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[14px] text-[#71767B] font-medium">Budget:</span>
-              <span className="text-[16px] text-[#71767B]">Up to</span>
-              <span className="text-[28px] font-bold text-[#1D9BF0]">
+            {/* Budget & Stats */}
+            <div className="p-6 border-r border-[#2F3336]">
+              <div className="text-[11px] uppercase tracking-wider text-[#71767B] mb-2 font-medium">Budget</div>
+              <div className="text-[32px] font-bold text-[#1D9BF0] mb-1">
                 {formatReward(bounty.reward, bounty.currency)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] text-[#71767B] font-medium">Category:</span>
-              <Badge variant="default">{bounty.category}</Badge>
-            </div>
-            <div className="flex items-center gap-4 text-[14px] text-[#71767B]">
-              <span>{bounty.applicantCount} applicants</span>
-              <span>·</span>
-              <span>{formatNumber(bounty.viewCount)} views</span>
-              <span>·</span>
-              <span>{formatNumber(bounty.bookmarkCount)} bookmarks</span>
+              </div>
+              <div className="text-[13px] text-[#71767B] mb-6">Maximum</div>
+
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="default">{bounty.category}</Badge>
+              </div>
+
+              <div className="flex items-center gap-4 text-[13px] text-[#71767B] mt-4">
+                <span>{bounty.applicantCount} applicants</span>
+                <span>·</span>
+                <span>{formatNumber(bounty.viewCount)} views</span>
+              </div>
             </div>
           </div>
-
-          {/* Divider */}
-          <div className="border-t border-[#2F3336] my-6" />
 
           {/* Description */}
-          <div className="mb-6">
-            <h2 className="text-[18px] font-bold text-[#E7E9EA] mb-3">
-              Description
-            </h2>
+          <div className="p-6 border-r border-b border-[#2F3336]">
+            <div className="text-[11px] uppercase tracking-wider text-[#71767B] mb-4 font-medium">Description</div>
             <p className="text-[15px] text-[#E7E9EA] leading-7 whitespace-pre-wrap">
               {bounty.description}
             </p>
-          </div>
 
-          {/* Tags */}
-          {bounty.tags.length > 0 && (
-            <div className="mb-6">
-              <div className="flex flex-wrap gap-2">
-                {bounty.tags.map((tag, index) => (
-                  <Badge key={index} variant="primary">
-                    #{tag}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Optional Details */}
-          {(bounty.applicationDeadline || bounty.maxApplicants) && (
-            <>
-              <div className="border-t border-[#2F3336] my-6" />
-              <div className="flex gap-6 text-[14px]">
+            {/* Deadline & Max Applicants */}
+            {(bounty.applicationDeadline || bounty.maxApplicants) && (
+              <div className="mt-6 pt-6 border-t border-[#2F3336] flex gap-8">
                 {bounty.applicationDeadline && (
                   <div>
-                    <span className="text-[#71767B]">Deadline: </span>
-                    <span className="text-[#E7E9EA]">
+                    <span className="text-[13px] text-[#71767B]">Deadline: </span>
+                    <span className="text-[13px] text-[#E7E9EA] font-medium">
                       {bounty.applicationDeadline.toLocaleDateString()}
                     </span>
                   </div>
                 )}
                 {bounty.maxApplicants && (
                   <div>
-                    <span className="text-[#71767B]">Max Applicants: </span>
-                    <span className="text-[#E7E9EA]">{bounty.maxApplicants}</span>
+                    <span className="text-[13px] text-[#71767B]">Max Applicants: </span>
+                    <span className="text-[13px] text-[#E7E9EA] font-medium">{bounty.maxApplicants}</span>
                   </div>
                 )}
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Two-Column Layout: Application Form + Bid List */}
-        {bounty.status === 'open' && (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            {/* Application Form - 60% width on desktop */}
-            <div className="lg:col-span-3">
-              <ApplicationForm
-                bounty={bounty}
-                existingApplication={existingApplication}
-                onSuccess={handleApplicationSuccess}
-              />
-            </div>
+        {/* Owner View: Show all submissions */}
+        {isOwner && (
+          <div className="mt-8">
+            <OwnerSubmissionsList bounty={bounty} />
+          </div>
+        )}
 
-            {/* Bid List - 40% width on desktop */}
-            <div className="lg:col-span-2">
+        {/* Non-Owner View: Application Section */}
+        {!isOwner && bounty.status === 'open' && (
+          <div className="mt-8 border-t border-l border-[#2F3336]">
+            <div className="grid grid-cols-1 lg:grid-cols-5">
+              {/* Application Form - 60% width on desktop */}
+              <div className="lg:col-span-3 p-6 border-r border-b border-[#2F3336]">
+                <ApplicationForm
+                  bounty={bounty}
+                  existingApplication={existingApplication}
+                  onSuccess={handleApplicationSuccess}
+                />
+              </div>
+
+              {/* Bid List - 40% width on desktop */}
+              <div className="lg:col-span-2 p-6 border-r border-b border-[#2F3336]">
+                <BidList
+                  bountyId={bounty.id}
+                  maxBudget={bounty.reward}
+                  currency={bounty.currency}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Non-Owner View: If bounty is not open, show bid list only */}
+        {!isOwner && bounty.status !== 'open' && (
+          <div className="mt-8 border-t border-l border-[#2F3336]">
+            <div className="p-6 border-r border-b border-[#2F3336] max-w-2xl">
               <BidList
                 bountyId={bounty.id}
                 maxBudget={bounty.reward}
                 currency={bounty.currency}
               />
             </div>
-          </div>
-        )}
-
-        {/* If bounty is not open, show bid list only */}
-        {bounty.status !== 'open' && (
-          <div className="max-w-2xl">
-            <BidList
-              bountyId={bounty.id}
-              maxBudget={bounty.reward}
-              currency={bounty.currency}
-            />
           </div>
         )}
       </div>

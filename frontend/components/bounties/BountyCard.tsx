@@ -28,11 +28,11 @@ export function BountyCard({ bounty }: BountyCardProps) {
       className="group relative p-6 cursor-pointer hover:bg-[#0A0A0A] transition-colors duration-200"
       onClick={handleClick}
     >
-      {/* Corner squares on hover - x.ai style */}
-      <div className="absolute top-2 left-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute top-2 right-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute bottom-2 left-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute bottom-2 right-2 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      {/* Corner squares on hover - x.ai style - positioned at grid intersections */}
+      <div className="absolute -top-1 -left-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
+      <div className="absolute -top-1 -right-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
+      <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
+      <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" />
 
       {/* Header: User Info */}
       <div className="flex items-center justify-between mb-4">
